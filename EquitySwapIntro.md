@@ -5,8 +5,8 @@
 # The define of Equity
 
 1. Now take the token(BTC or USDC ) as the equity
-2. the yields strategy can select when one person begin open one swap, like the Aave, Compound, Yearn, etc. TODO should
-   check how to use the strategy
+2. the yields strategy can be selected when one person begin open one swap, like the Aave, Compound, Yearn, etc. TODO
+   should check how to use the strategy
 3. Structs of Equity(Leg)
 
 ```solidity
@@ -56,7 +56,7 @@
 
 1.  case1
 
-    1.1. startDate: opener: 1 BTC, actual value: 10,000; pairer: 10,000 USDC BTC
+    1.1. startDate: opener: 1 BTC, actual value: 10,000; pairer: 10,000 USDC
 
     1.2. endDate: BTC increase: 0.5%. Now BTC market value: 10,500, USDC price don't change. the relative increase rates
     of the BTC comparing to the USDC: 5%.
