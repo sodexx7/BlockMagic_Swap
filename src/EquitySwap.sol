@@ -55,6 +55,7 @@ contract EquitySwap is ownable {
   
     // TODO: when open the swap, should grant the contract can use the legToken along with the notional
     // TODO: more conditions check, such as user should have enough token to open the swap
+    // TODO: For the legToken, should supply options for user's selection. (NOW, BTC,ETH,USDC)
     function openSwap(address legToken,uint notional,uint64 startDate) external {
 
         require(startDate > block.timestamp, "startDate should be greater than now"); // todo change to custom error message
