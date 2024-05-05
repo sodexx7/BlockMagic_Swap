@@ -1,43 +1,59 @@
-# Participants
+# Equity Swap Intro
 
-1. opener, pairer, dealContract(EquitySwap)
+The application will act like an Escrow for market participants willing to enter into a Swap contract.
+We are firstly focusing on Equity swap contract.
 
-# The define of Equity
+## Participants
 
-1. Now take the token(BTC or USDC ) as the equity
-2. the yields strategy can be selected when one person begin open one swap, like the Aave, Compound, Yearn, etc. TODO
-   should check how to use the strategy
-3. Structs of Equity(Leg)
+- opener/orderMaker: A user making an offer for a Swap contract.
+  - Can make an offer for a Swap contract on the website.
+- pairer/orderTaker: A user joining an offer for a Swap Contract.
+  - Can take an offer for a Swap contract on the website.
+- dealContract(EquitySwap): The contract acting as third party
+  
+## Definition of Equity Swap
+
+1. orderMaker select:
+
+- Notional ($10, $100, $1,000)
+- Leg A (AAPL, AMZN, NVDA, etc...)
+- Leg B (AAPL, AMZN, NVDA, etc...) **Can choose more than one**
+- Start Date
+- End Date
+- Frequency (Weekly/Monthly/Quaterly/Annualy)
+- Currency (BTC, ETH, USDC, etc...)
+- Yield (Aave, Compound, Yearn, etc...) **Check how to use the strategy**
 
 ```solidity
-   1. swapwer: who ownes the equity
-   2. tokenAddress: which token(Now just considet the top token BTC, USDC,ETH)
-   3. Notional: the amount of the equity
-   4. StartDate: the start date of the swap
+   1. swaper: The address of the user
+   2. tokenAddress: The token address of the currency
+   3. Notional: The notional amount of the swap
+   4. StartDate: The start date of the swap
    5. ExpireDate: StartDate + period(30 days)
-   6. yieldStragett: based on user selecting which yieldStragety
-   7. status: Open, Active,Settled,Cancelled
-   8. pairLegId: if the leg doesn't pair, pairLegId=0, if paired, pairLegId = the legId of the pair leg
-
+   6. yieldStrategy: The yield selected by the user
+   7. status: Open, Active, Settled, Cancelled
+   8. pairLegId: if the leg isn't paired, pairLegId=0, if paired, pairLegId = the legId of the pair leg
 ```
 
-# YieldStrategy management
+## YieldStrategy management
 
-- owner can modify YieldStrategy
+- Owner can modify YieldStrategy
 
-* todo
-  1.  how to return the yields? when the swap end, send the yields to the user?
+### Todo
 
-# Deal workFlow
+- How to return the yields?  
+  When the swap end, send the yields to the user?
+
+## Deal workFlow
 
 1. 0ne user openSwap
 2. Another user pairSwap, based on the legId, creating new pair.
 
    2.1 Updating the two pairs(status, pairLegId)
 
-   2.2 Get all benchPrice for the two related legToken
+   2.2 Get all benchPrice for the two related legToken at the startDate
 
-   2.3 inform the chainlink, when call(startDate+period) and call who(legId)
+   2.3 Inform the chainlink, when call(startDate+period) and call who(legId)
 
 3. SettleSwap.
 
@@ -50,7 +66,7 @@
    3.4 if not the end of swap, should update all leg info, if it's the ned of the swap, transfer all tokens to the
    corresponding's owner along with making the leg's status as settled.
 
-# DealEngine(todo check my understanding is right? Based on the relative increased percent, Is it Fair?)
+## DealEngine(todo check my understanding is right? Based on the relative increased percent, Is it Fair?)
 
 - Rules: How to send the profit the corresponding user?
 
@@ -75,7 +91,7 @@
 
       2.3. updating opener: 1 BTC, actual value: 10,500; pairer: 4,750 USDC
 
-# When using chainlink, which features?
+## When using chainlink, which features?
 
 1.  pairSwap
 
@@ -89,7 +105,7 @@
 
 * get all token's latest price
 
-# TODO, or questiosn?
+## TODO, or questiosn?
 
 1. No matter the opener and the pairer, must have the same value for their equity?
 2. Why not immediately begin the swap when another user pair the swap?
