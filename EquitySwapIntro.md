@@ -131,3 +131,16 @@ We are firstly focusing on Equity swap contract.
 
 6. More EquityType, maybe add more equity type in the future
    - Compitable with more Equity type, such as the swap between floating and fix rate. Stock price?
+
+## FAQ Trader
+
+- We should introduce a Margin call mechanism:
+  - Dipslay margin call satus from contract
+  - Give 24h to 36h (1 to 1.5 days) to repay
+- For the minimum margin
+  - We can use the volatily 1 week of the underlying
+- We should only give yield only for shot leg
+  - To avoid arbitrage !!!
+- Problem if we use ratio to sanction people with less money
+  - Need to check for arbitrage opportunity (Opening a lot of contract)
+- We should do Long GOOGLE VS Short Google i/o GOOGLE VS AMAZON
