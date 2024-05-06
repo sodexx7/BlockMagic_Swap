@@ -13,7 +13,7 @@ contract EquitySwap is Ownable,PriceFeeds {
         address yieldAddress;
         // todo, more yield strategy info, or as ta sepatate contract
     }
-    // todo: when user deposit tokem; how to deal with yield??
+    // todo: when user deposit token; how to deal with yield??
     mapping(uint8 => YieldStrategy) public yieldStrategys; // 1: Aave, 2: Compound, 3: Yearn
 
     enum Status {
@@ -157,7 +157,7 @@ contract EquitySwap is Ownable,PriceFeeds {
         }
         console2.log("winner:",winner);
         console2.log("profit:",profit);
-        // TOOD
+        // TODO
         // 1. transfer the profit to the winner
         // 2. update the status of the originalLeg and pairLeg
         // 3. emit the event
