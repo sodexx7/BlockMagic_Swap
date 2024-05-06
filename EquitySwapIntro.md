@@ -134,6 +134,8 @@ We are firstly focusing on Equity swap contract.
 
 ## FAQ Trader
 
+- Should allow Notional (10/100/1000) with multiplier
+  - This will allow matching of position
 - We should introduce a Margin call mechanism:
   - Dipslay margin call satus from contract
   - Give 24h to 36h (1 to 1.5 days) to repay
