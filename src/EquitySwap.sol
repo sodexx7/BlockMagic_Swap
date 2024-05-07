@@ -28,7 +28,7 @@ contract EquitySwap is Ownable,PriceFeeds {
         address swaper;
         address tokenAddress;
         uint notional;
-        uint settledStableTokenAmount;
+        uint settledStableTokenAmount;//
         uint256 benchPrice;
         uint64 startDate;
         uint64 pairLegId; // 0 means not paired (open status), paired >1 means matched
