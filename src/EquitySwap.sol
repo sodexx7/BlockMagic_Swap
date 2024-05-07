@@ -29,10 +29,21 @@ contract EquitySwap is Ownable, PriceFeeds {
         Open,
         Active,
         Settled,
-        Cancelled // No one pair or user cancled the swap
+        Cancelled // User cancelled the order or no taker
 
     }
 
+    /**
+     * @notice The Leg struct
+     * @param swaper The address of the swaper
+     * @param tokenAddress The address of the token
+     * @param notional The notional amount of the swap
+     * @param settledStableTokenAmount The amount of the stable token
+     * @param benchPrice The price of the token when open the swap
+     * @param startDate The start date of the swap
+     * @param pairLegId The pair leg id
+     * @param status The status of the swap
+     */
     struct Leg {
         address swaper;
         address tokenAddress;
@@ -40,12 +51,14 @@ contract EquitySwap is Ownable, PriceFeeds {
         uint256 settledStableTokenAmount; //
         uint256 benchPrice;
         uint64 startDate;
-        uint64 pairLegId; // 0 means not paired (open status), paired >1 means matched
+        /// @dev 0: not taken (open status), pairLegId>1: taken (active status)
+        uint64 pairLegId;
         Status status;
     }
 
-    // legId, used by chainlink and check the pair leg
-    // how to get all legs? maxLegId: max legId. front 1=>maxLegId
+    /// @notice The leg owned by each account
+    /// @return leg the leg owned by the account
+    /// @dev legId, used by chainlink and check the pair leg // TODO: Explain this part
     mapping(uint256 => Leg) public legs;
 
     event OpenSwap(address indexed swaper, address indexed tokenAddress, uint256 notional, uint256 startDate);
@@ -53,7 +66,7 @@ contract EquitySwap is Ownable, PriceFeeds {
         uint256 indexed originalLegId, uint256 indexed pairlegId, address pairer, address pairToekn, uint256 notional
     );
     // TODO more PairSwap event cases
-    event SettelSwap(uint256 indexed legId, address indexed winner, address payToken, uint256 profit);
+    event SettleSwap(uint256 indexed legId, address indexed winner, address payToken, uint256 profit);
 
     // event, who win the swap, how much profit
     // event, the latest notional of the swaper and pairer after the settleSwap
@@ -80,9 +93,9 @@ contract EquitySwap is Ownable, PriceFeeds {
         // }
     }
 
-    // TODO: when open the swap, should grant the contract can use the legToken along with the notional
+    // TODO: When open the swap, should grant the contract can use the legToken along with the notional
     // TODO: more conditions check, such as user should have enough token to open the swap
-    // TODO: For the legToken, should supply options for user's selection. (NOW, BTC,ETH,USDC)
+    // TODO: For the legToken, should supply options for user's selection. (NOW, BTC, ETH, USDC)
     // TODO: TYPE? Deposited stable coin or directly apply legToken.(Now only support Deposited stable coin)
     function openSwap(
         uint256 settledStableTokenAmount,
@@ -92,7 +105,7 @@ contract EquitySwap is Ownable, PriceFeeds {
     )
         external
     {
-        require(startDate > block.timestamp, "startDate should be greater than now"); // todo change to custom error
+        require(startDate > block.timestamp, "startDate should be greater than now"); // TODO change to custom error
             // message
 
         // check stable coin balance
@@ -104,27 +117,27 @@ contract EquitySwap is Ownable, PriceFeeds {
         uint256 legTokenLatestPrice = uint256(getLatestPrice(legToken));
         // console2.log("opner settledStableTokenAmount",settledStableTokenAmount);
         // console2.log("notional*legTokenLatestPrice",notional*legTokenLatestPrice);
+
+        // TODO: Need to change this requirement
+        // User transfer USDC to the contract
+        // check USDC's market value equal legTokenPrice*notional
         require(
             settledStableTokenAmount >= notional * legTokenLatestPrice,
-            "The settledStableTokenAmount shouldn't less than legToken's market value"
+            "The settledStableTokenAmount shouldn't be less than legToken's market value"
         );
 
-        // transfer the stable coin to the contract, now?
+        // When transfer USDC to the contract, immediatly or when pairSwap?
         IERC20(settledStableToken).transferFrom(msg.sender, address(this), settledStableTokenAmount);
 
-        //  user transfer usdc to the contract and make sure the usdc's market value equal legTokenPrice* notional TODO,
-        // when transfer usdc to the contract,now or when pairSwap?
-
-        uint256 legTokenPrice = uint256(getLatestPrice(legToken));
         Leg memory leg = Leg({
             swaper: msg.sender,
             tokenAddress: legToken,
             notional: notional,
             settledStableTokenAmount: settledStableTokenAmount,
-            benchPrice: legTokenPrice,
             startDate: startDate,
             status: Status.Open,
-            pairLegId: 0 //todo Status.Open also means the pairLegId is 0
+            pairLegId: 0, // Status.Open also means the pairLegId is 0
+            benchPrice: 0 // BenchPrice is updatated on the startDate
          });
 
         legs[maxLegId] = leg;
@@ -140,12 +153,12 @@ contract EquitySwap is Ownable, PriceFeeds {
     )
         external
     {
-        // todo, in this stage, get all token price when pair the swap?
+        // TODO: in this stage, get all token price when pairing the swap?
 
         Leg memory originalLeg = legs[originalLegId];
         require(originalLeg.status == Status.Open, "The leg is not open");
         require(originalLeg.startDate > block.timestamp, "The leg is expired");
-        // todo, more rules check: the amount of the pairToken should be enough to pair the original leg?
+        // TODO: More rules check: the amount of the pairToken should be enough to pair the original leg?
         // check stable coin balance
         require(
             IERC20(settledStableToken).balanceOf(msg.sender) >= settledStableTokenAmount,
@@ -160,7 +173,7 @@ contract EquitySwap is Ownable, PriceFeeds {
             "The settledStableTokenAmount shouldn't less than legToken's market value"
         );
 
-        // transfer the stable coin to the contract, now?
+        // Transfer the stable coin of the orderMaker and orderTaker to the contract
         IERC20(settledStableToken).transferFrom(msg.sender, address(this), settledStableTokenAmount);
 
         uint256 pairLegTokenLatestPrice = uint256(getLatestPrice(pairToken));
@@ -172,8 +185,8 @@ contract EquitySwap is Ownable, PriceFeeds {
             startDate: originalLeg.startDate,
             status: Status.Active,
             pairLegId: originalLegId,
-            benchPrice: pairLegTokenLatestPrice
-        });
+            benchPrice: pairLegTokenLatestPrice // TODO: benchPrice should be updated on the startDate
+         });
 
         legs[maxLegId] = pairLeg;
         legs[originalLegId].pairLegId = maxLegId;
@@ -189,7 +202,7 @@ contract EquitySwap is Ownable, PriceFeeds {
     }
 
     // This function was called by chainlink or by the user
-    // TODO Now just considet the endDate situation
+    // TODO Use historical price instead
     function settleSwap(uint64 legId) external {
         // TODO more conditions check
         // 1. time check
@@ -197,7 +210,7 @@ contract EquitySwap is Ownable, PriceFeeds {
         Leg memory pairLeg = legs[originalLeg.pairLegId];
         require(originalLeg.status == Status.Active && pairLeg.status == Status.Active, "The leg is not active");
 
-        // TODO precious and arithmetic calculation check, securty check
+        // TODO precious and arithmetic calculation check, security check
         uint256 originalLegTokenLatestPrice = uint256(getLatestPrice(originalLeg.tokenAddress));
         uint256 pairLegTokenLatestPrice = uint256(getLatestPrice(pairLeg.tokenAddress));
 
@@ -210,10 +223,10 @@ contract EquitySwap is Ownable, PriceFeeds {
         uint256 updateLegId = legId;
         // TODO, It's rare that existed the equal, should limited in a range(as 0.1% -> 0.2%)
         // x`/x = y`/y => x`*y = x*y` => x`*y - x*y` = 0
-        if (originalLegTokenLatestPrice * pairLeg.benchPrice == pairLegTokenLatestPrice * originalLeg.benchPrice) { // the
-                // increased rates of  both legToken price are all equal
-                // skip emit equal
-                // x`/x > y`/y => x`*y > x*y` => x`*y - x*y` > 0
+        if (originalLegTokenLatestPrice * pairLeg.benchPrice == pairLegTokenLatestPrice * originalLeg.benchPrice) {
+            // the increased rates of  both legToken price are all equal
+            // skip emit equal
+            // x`/x > y`/y => x`*y > x*y` => x`*y - x*y` > 0
         } else if (originalLegTokenLatestPrice * pairLeg.benchPrice > pairLegTokenLatestPrice * originalLeg.benchPrice)
         {
             console2.log("originalLeg token price change:", originalLeg.benchPrice, originalLegTokenLatestPrice);
@@ -248,7 +261,7 @@ contract EquitySwap is Ownable, PriceFeeds {
         legs[legId].status = Status.Settled;
         legs[originalLeg.pairLegId].status = Status.Settled;
 
-        emit SettelSwap(legId, winner, settledStableToken, profit);
+        emit SettleSwap(legId, winner, settledStableToken, profit);
 
         // TODO
         // Related test cases
