@@ -1,7 +1,7 @@
 # Equity Swap Intro
 
 The application will act like an Escrow for market participants willing to enter into a Swap contract. We are firstly
-focusing on Equity swap contract.
+focusing on Price Return Swap.
 
 ## Participants
 
