@@ -50,6 +50,11 @@ abstract contract PriceFeeds is Ownable {
         return priceFeedAddresses[tokenAddress];
     }
 
+    //TODO for test 
+    function description(address tokenAddress) public view returns (string memory) {
+        return AggregatorV3Interface(priceFeedAddresses[tokenAddress]).description();
+    }
+
     // TODO, below function should optimize
     function addPriceFeed(address tokenAddress,address priceFeedAddress) external onlyOwner {
 

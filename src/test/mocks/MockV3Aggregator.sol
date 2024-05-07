@@ -16,14 +16,16 @@ contract MockV3Aggregator {
     int256 public latestAnswer;
     uint256 public latestTimestamp;
     uint256 public latestRound;
+    string public _description;
 
     mapping(uint256 => int256) public getAnswer;
     mapping(uint256 => uint256) public getTimestamp;
     mapping(uint256 => uint256) private getStartedAt;
 
-    constructor(uint8 _decimals, int256 _initialAnswer) {
+    constructor(uint8 _decimals, int256 _initialAnswer,string memory _intro) {
         decimals = _decimals;
         updateAnswer(_initialAnswer);
+        _description = _intro;
     }
 
     function updateAnswer(int256 _answer) public {
@@ -33,6 +35,7 @@ contract MockV3Aggregator {
         getAnswer[latestRound] = _answer;
         getTimestamp[latestRound] = block.timestamp;
         getStartedAt[latestRound] = block.timestamp;
+        
     }
 
     function updateRoundData(
@@ -89,7 +92,7 @@ contract MockV3Aggregator {
         );
     }
 
-    function description() external pure returns (string memory) {
-        return "v0.6/tests/MockV3Aggregator.sol";
+    function description() external view returns (string memory) {
+        return _description;
     }
 }

@@ -1,7 +1,7 @@
 # Equity Swap Intro
 
-The application will act like an Escrow for market participants willing to enter into a Swap contract.
-We are firstly focusing on Equity swap contract.
+The application will act like an Escrow for market participants willing to enter into a Swap contract. We are firstly
+focusing on Equity swap contract.
 
 ## Participants
 
@@ -10,7 +10,7 @@ We are firstly focusing on Equity swap contract.
 - pairer/orderTaker: A user joining an offer for a Swap Contract.
   - Can take an offer for a Swap contract on the website.
 - dealContract(EquitySwap): The contract acting as third party
-  
+
 ## Definition of Equity Swap
 
 1. orderMaker select:
@@ -66,30 +66,7 @@ We are firstly focusing on Equity swap contract.
    3.4 if not the end of swap, should update all leg info, if it's the ned of the swap, transfer all tokens to the
    corresponding's owner along with making the leg's status as settled.
 
-## DealEngine(todo check my understanding is right? Based on the relative increased percent, Is it Fair?)
-
-- Rules: How to send the profit the corresponding user?
-
-1.  case1
-
-    1.1. startDate: opener: 1 BTC, actual value: 10,000; pairer: 10,000 USDC
-
-    1.2. endDate: BTC increase: 0.5%. Now BTC market value: 10,500, USDC price don't change. the relative increase rates
-    of the BTC comparing to the USDC: 5%.
-
-    - 5% \* 10,000 = 500 USDC to BTC depositer.
-
-      1.3. updating opener: 1 BTC, actual value: 10,500; pairer: 9,500 USDC
-
-2.  case2
-
-    2.1 startDate: opener: 1 BTC, actual value: 10,000; pairer: 5,000 USDC
-
-    2.2 endDate: BTC increase: 0.5%. Now BTC market value: 10,500, USDC price don't change.
-
-    - DealEngine: 5% \* 5,000 = 250 USDC to BTC depositer.
-
-      2.3. updating opener: 1 BTC, actual value: 10,500; pairer: 4,750 USDC
+## [DealEngine](DealEngine.md)
 
 ## When using chainlink, which features?
 
@@ -99,7 +76,7 @@ We are firstly focusing on Equity swap contract.
 
 * inform chainlink(automation) when to call settleSwap
 
-2.  settleSwap
+2.  settleSwap X
 
 - was called by chainlink automation
 
