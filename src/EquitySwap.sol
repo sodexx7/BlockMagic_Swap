@@ -56,9 +56,10 @@ contract EquitySwap is Ownable, PriceFeeds {
         Status status;
     }
 
-    /// @notice The leg owned by each account
-    /// @return leg the leg owned by the account
-    /// @dev legId, used by chainlink and check the pair leg // TODO: Explain this part
+    /// @notice The leg owned by each account //TOOD  check 
+    /// @dev legId, 
+    /// @notice get legInfo by querying the legId, get all legs info by combing maxLegId
+    /// @notice if want to used by external service,like chainlink, can use the legId
     mapping(uint256 => Leg) public legs;
 
     event OpenSwap(address indexed swaper, address indexed tokenAddress, uint256 notional, uint256 startDate);
