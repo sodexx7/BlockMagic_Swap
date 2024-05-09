@@ -69,6 +69,7 @@ contract EquitySwap is Ownable, PriceFeeds {
     );
     // TODO more PairSwap event cases
     event SettleSwap(uint256 indexed legId, address indexed winner, address payToken, uint256 profit);
+    event NoProfitWhileSettle(uint256 indexed legId, address indexed swaper, address indexed pairer);
 
     // event, who win the swap, how much profit
     // event, the latest notional of the swaper and pairer after the settleSwap
@@ -263,7 +264,8 @@ contract EquitySwap is Ownable, PriceFeeds {
         // TODO, It's rare that existed the equal, should limited in a range(as 0.1% -> 0.2%)
         if (originalLegTokenLatestPrice * pairLeg.benchPrice == pairLegTokenLatestPrice * originalLeg.benchPrice) {
             // the increased rates of  both legToken price are all equal
-            // skip emit equal
+            emit NoProfitWhileSettle(legId, originalLeg.swaper, pairLeg.swaper);
+            return;
         } else if (originalLegTokenLatestPrice * pairLeg.benchPrice > pairLegTokenLatestPrice * originalLeg.benchPrice){   
             // console2.log("originalLeg token price change:", uint256(originalLeg.benchPrice) / 10**legTokenPriceDecimials, uint256(originalLegTokenLatestPrice) / 10**legTokenPriceDecimials);
             // console2.log("pairLeg token price change:", uint256(pairLeg.benchPrice) / 10**pairTokenPriceDecimials, uint256(pairLegTokenLatestPrice) / 10**pairTokenPriceDecimials);

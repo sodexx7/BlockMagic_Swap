@@ -21,6 +21,7 @@ contract EquitySwapTest is Test {
     address btcPriceFeedAddress;
     MockERC20 internal usdcContractAddress;
 
+    event NoProfitWhileSettle(uint256 indexed legId, address indexed swaper, address indexed pairer);
     
     /// @dev A function invoked before each test case is run.
     /**
@@ -114,6 +115,38 @@ contract EquitySwapTest is Test {
         assertEq(pairLeg.tokenAddress, btcTokenAddress);
     }
 
+    function test_settleEqual() external {
+        ///////////////////////////////////////////////  opener  ///////////////////////////////////////////////  
+        uint256 startDate = block.timestamp + 1 days;
+        uint256 swaperUsdcAmount = 10_000e6;
+        mintTestUSDC(swaper, swaperUsdcAmount);
+        uint256 selectedNotional = 1*10**ERC20(ethTokenAddress).decimals(); // 1 ETH
+
+        vm.startPrank(swaper);
+        usdcContractAddress.approve(address(equitySwap), swaperUsdcAmount);
+        equitySwap.openSwap(swaperUsdcAmount, ethTokenAddress, selectedNotional, uint64(startDate));
+        vm.stopPrank();
+        ///////////////////////////////////////////////  opener  ///////////////////////////////////////////////
+
+        ///////////////////////////////////////////////  pairer  ///////////////////////////////////////////////
+        uint64 originalLegId = 1;
+        uint256 pairUsdcAmount = 60_000e6;
+        usdcContractAddress.mint(pairer, pairUsdcAmount);
+        uint256 pairTokenNotional = 1*10**ERC20(btcTokenAddress).decimals(); // 1 WBTC
+
+        vm.startPrank(pairer);
+        usdcContractAddress.approve(address(equitySwap), pairUsdcAmount);
+        equitySwap.pairSwap(pairUsdcAmount, originalLegId, btcTokenAddress, pairTokenNotional);
+        vm.stopPrank();
+        ///////////////////////////////////////////////  pairer  ///////////////////////////////////////////////
+        
+        vm.warp(startDate + 30 days);
+        // price for ETH/USD, BTC/USD hasn't  changed
+        vm.expectEmit(true, true, true, true);
+        emit NoProfitWhileSettle(1, swaper, pairer);
+        equitySwap.settleSwap(1);
+    }
+
     function test_settleOpenerWin() external {
         ///////////////////////////////////////////////  opener  ///////////////////////////////////////////////  
         uint256 startDate = block.timestamp + 1 days;
@@ -197,6 +230,120 @@ contract EquitySwapTest is Test {
         assertEq(5e6, equitySwapUsdcAmountBefore-equitySwapUsdcAmountAfter);
     }
 
+    /**
+    case1
+    1.1. startDate: opener: 1 BTC, actual value: 10,000; pairer: 10,000 USDC
+
+    1.2. endDate: BTC increase: 5%. Now BTC market value: 10,500, USDC price don't change. the relative increase rates
+    of the BTC comparing to the USDC: 5%.
+
+    - 5% \* 10,000 = 500 USDC to BTC depositer.
+
+      1.3. updating opener: 1 BTC, actual value: 10,500; pairer: 9,500 USDC
+
+    case2
+    2.1 startDate: opener: 1 BTC, actual value: 10,000; pairer: 5,000 USDC
+
+    2.2 endDate: BTC increase: 5%. Now BTC market value: 10,500, USDC price don't change.
+
+    - DealEngine: 5% \* 5,000 = 250 USDC to BTC depositer.
+
+    2.3. updating opener: 1 BTC, actual value: 10,500; pairer: 4,750 USDC
+    */
+    function test_SettleCase1() external {
+        mockupdatePriceFeed("ETH/USD", 10_00e8);
+        mockupdatePriceFeed("BTC/USD", 10_000e8); 
+        ///////////////////////////////////////////////  opener  ///////////////////////////////////////////////  
+        uint256 startDate = block.timestamp + 1 days;
+        uint256 swaperUsdcAmount = 10_000e6;
+        mintTestUSDC(swaper, swaperUsdcAmount);
+        uint256 selectedNotional = 1*10**ERC20(btcTokenAddress).decimals(); // 1 WBTC
+
+        vm.startPrank(swaper);
+        usdcContractAddress.approve(address(equitySwap), swaperUsdcAmount);
+        equitySwap.openSwap(swaperUsdcAmount, btcTokenAddress, selectedNotional, uint64(startDate));
+        vm.stopPrank();
+        ///////////////////////////////////////////////  opener  ///////////////////////////////////////////////
+
+
+         ///////////////////////////////////////////////  pairer  ///////////////////////////////////////////////
+         uint64 originalLegId = 1;
+         uint256 pairUsdcAmount = 10_000e6;
+         mintTestUSDC(pairer, pairUsdcAmount);
+         uint256 pairTokenNotional = 10*10**ERC20(ethTokenAddress).decimals(); // 10 ETH
+ 
+         vm.startPrank(pairer);
+         usdcContractAddress.approve(address(equitySwap), pairUsdcAmount);
+         equitySwap.pairSwap(pairUsdcAmount, originalLegId, ethTokenAddress, pairTokenNotional);
+         vm.stopPrank();
+         ///////////////////////////////////////////////  pairer  ///////////////////////////////////////////////
+
+        mockupdatePriceFeed("BTC/USD", 10_500e8);  // BTC increase: 5%. Now BTC market value: 10,500
+
+
+        uint256 equitySwapUsdcAmountBefore = usdcContractAddress.balanceOf(address(equitySwap));
+        uint256 swaperrUsdcAmountBefore = usdcContractAddress.balanceOf(swaper);
+        equitySwap.settleSwap(1);
+        uint256 swaperUsdcAmountAfter = usdcContractAddress.balanceOf(swaper);
+        uint256 equitySwapUsdcAmountAfter = usdcContractAddress.balanceOf(address(equitySwap));
+
+        console2.log("swaperrUsdcAmountBefore", swaperrUsdcAmountBefore / 10**ERC20(usdcContractAddress).decimals() ,"USDC");
+        console2.log("swaperUsdcAmountAfter", swaperUsdcAmountAfter / 10**ERC20(usdcContractAddress).decimals(),"USDC");
+        console2.log("equitySwapUsdcAmountBefore", equitySwapUsdcAmountBefore / 10**ERC20(usdcContractAddress).decimals(),"USDC");
+        console2.log("equitySwapUsdcAmountAfter", equitySwapUsdcAmountAfter / 10**ERC20(usdcContractAddress).decimals(),"USDC");
+        // BTC 10_000e8 => 10_500e8, legToken increased 5% bench amount of USDC:  10_000. profit 500USDC
+        assertEq(500e6, swaperUsdcAmountAfter-swaperrUsdcAmountBefore);
+        assertEq(500e6, equitySwapUsdcAmountBefore-equitySwapUsdcAmountAfter);
+    }
+
+    function test_SettleCase2() external {
+        mockupdatePriceFeed("ETH/USD", 10_00e8);
+        mockupdatePriceFeed("BTC/USD", 10_000e8); 
+        ///////////////////////////////////////////////  opener  ///////////////////////////////////////////////  
+        uint256 startDate = block.timestamp + 1 days;
+        uint256 swaperUsdcAmount = 10_000e6;
+        mintTestUSDC(swaper, swaperUsdcAmount);
+        uint256 selectedNotional = 1*10**ERC20(btcTokenAddress).decimals(); // 1 WBTC
+
+        vm.startPrank(swaper);
+        usdcContractAddress.approve(address(equitySwap), swaperUsdcAmount);
+        equitySwap.openSwap(swaperUsdcAmount, btcTokenAddress, selectedNotional, uint64(startDate));
+        vm.stopPrank();
+        ///////////////////////////////////////////////  opener  ///////////////////////////////////////////////
+
+
+         ///////////////////////////////////////////////  pairer  ///////////////////////////////////////////////
+         uint64 originalLegId = 1;
+         uint256 pairUsdcAmount = 5_000e6; // 5_000e8 = 1/2* swaperUsdcAmount   
+         mintTestUSDC(pairer, pairUsdcAmount);
+         uint256 pairTokenNotional = 5*10**ERC20(ethTokenAddress).decimals(); // 5 ETH
+ 
+         vm.startPrank(pairer);
+         usdcContractAddress.approve(address(equitySwap), pairUsdcAmount);
+         equitySwap.pairSwap(pairUsdcAmount, originalLegId, ethTokenAddress, pairTokenNotional);
+         vm.stopPrank();
+         ///////////////////////////////////////////////  pairer  ///////////////////////////////////////////////
+
+        mockupdatePriceFeed("BTC/USD", 10_500e8);  // BTC increase: 5%. Now BTC market value: 10,500
+
+
+        uint256 equitySwapUsdcAmountBefore = usdcContractAddress.balanceOf(address(equitySwap));
+        uint256 swaperrUsdcAmountBefore = usdcContractAddress.balanceOf(swaper);
+        equitySwap.settleSwap(1);
+        uint256 swaperUsdcAmountAfter = usdcContractAddress.balanceOf(swaper);
+        uint256 equitySwapUsdcAmountAfter = usdcContractAddress.balanceOf(address(equitySwap));
+
+        console2.log("swaperrUsdcAmountBefore", swaperrUsdcAmountBefore / 10**ERC20(usdcContractAddress).decimals() ,"USDC");
+        console2.log("swaperUsdcAmountAfter", swaperUsdcAmountAfter / 10**ERC20(usdcContractAddress).decimals(),"USDC");
+        console2.log("equitySwapUsdcAmountBefore", equitySwapUsdcAmountBefore / 10**ERC20(usdcContractAddress).decimals(),"USDC");
+        console2.log("equitySwapUsdcAmountAfter", equitySwapUsdcAmountAfter / 10**ERC20(usdcContractAddress).decimals(),"USDC");
+        // BTC 10_000e8 => 10_500e8, legToken increased 5% bench amount of USDC:  5_000. profit 250USDC
+        assertEq(250e6, swaperUsdcAmountAfter-swaperrUsdcAmountBefore);
+        assertEq(250e6, equitySwapUsdcAmountBefore-equitySwapUsdcAmountAfter);
+
+        // TODO
+        // 1. Test the EquitySwap contract how to record each user's deposited USDC
+    }
     
 
     // todo add fuzzy funciton based on below test
