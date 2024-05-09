@@ -61,4 +61,8 @@ abstract contract PriceFeeds is Ownable {
         priceFeedAddresses[tokenAddress] = priceFeedAddress;
 
     }
+
+    function priceFeedDecimals(address tokenAddress) public view returns (uint8) {
+        return AggregatorV3Interface(priceFeedAddresses[tokenAddress]).decimals();
+    }
 }
