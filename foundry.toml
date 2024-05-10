@@ -14,6 +14,7 @@
   solc = "0.8.25"
   src = "src"
   test = "test"
+  viaIR =  true #TODO Temparary add, should remove
 
 [profile.ci]
   fuzz = { runs = 10_000 }

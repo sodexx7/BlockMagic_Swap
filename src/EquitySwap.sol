@@ -3,6 +3,7 @@ pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import "./PriceFeeds.sol";
 
@@ -48,17 +49,18 @@ contract EquitySwap is Ownable, PriceFeeds {
         address swaper;
         address tokenAddress;
         uint256 notional;
-        uint256 settledStableTokenAmount; //
-        uint256 benchPrice;
+        uint256 settledStableTokenAmount;
+        int256 benchPrice;
         uint64 startDate;
         /// @dev 0: not taken (open status), pairLegId>1: taken (active status)
         uint64 pairLegId;
         Status status;
     }
 
-    /// @notice The leg owned by each account
-    /// @return leg the leg owned by the account
-    /// @dev legId, used by chainlink and check the pair leg // TODO: Explain this part
+    /// @notice The leg owned by each account //TODO  check 
+    /// @dev legId, 
+    /// @notice get legInfo by querying the legId, get all legs info by combing maxLegId
+    /// @notice if want to used by external service,like chainlink, can use the legId
     mapping(uint256 => Leg) public legs;
 
     event OpenSwap(address indexed swaper, address indexed tokenAddress, uint256 notional, uint256 startDate);
@@ -67,6 +69,7 @@ contract EquitySwap is Ownable, PriceFeeds {
     );
     // TODO more PairSwap event cases
     event SettleSwap(uint256 indexed legId, address indexed winner, address payToken, uint256 profit);
+    event NoProfitWhileSettle(uint256 indexed legId, address indexed swaper, address indexed pairer);
 
     // event, who win the swap, how much profit
     // event, the latest notional of the swaper and pairer after the settleSwap
@@ -114,15 +117,20 @@ contract EquitySwap is Ownable, PriceFeeds {
             "The user should have enough token to open the swap"
         );
 
-        uint256 legTokenLatestPrice = uint256(getLatestPrice(legToken));
-        // console2.log("opner settledStableTokenAmount",settledStableTokenAmount);
-        // console2.log("notional*legTokenLatestPrice",notional*legTokenLatestPrice);
+        int256 legTokenLatestPrice = getLatestPrice(legToken);
+        uint8 legTokenDecimals = ERC20(legToken).decimals();
+        uint8 priceDecimials = priceFeedDecimals(legToken);
+        // console2.log("legTokenLatestPrice",uint256(legTokenLatestPrice) / 10**priceDecimials ,"USDC");
+        // console2.log("opener settledStableTokenAmount",settledStableTokenAmount / 10**ERC20(settledStableToken).decimals(),"USDC");
+        // console2.log("legToken Market Value(USDC)",((notional / 10**legTokenDecimals) * uint256(legTokenLatestPrice) / (10**(priceDecimials)  )),"USDC"); 
 
-        // TODO: Need to change this requirement
-        // User transfer USDC to the contract
-        // check USDC's market value equal legTokenPrice*notional
+        // Now compare the value based on USDC verse USD. such as 1500USDC > 1000USD, elimate the fraction part (10_000.23  USDC > 30000.49 USD)
+        /**
+         for exmaple: opener deposited 1500USDC, the legToken's latest value is 1000 ETH/USD, the notional is 1 ETH, below comparing 1500USDC verse 1000USD
+         emiliating the fraction part, though the USD's decimals is 8, the USDC's decimals is 6
+         */
         require(
-            settledStableTokenAmount >= notional * legTokenLatestPrice,
+            settledStableTokenAmount / 10**ERC20(settledStableToken).decimals() >= (notional * uint256(legTokenLatestPrice) / 10**(legTokenDecimals + priceDecimials)),
             "The settledStableTokenAmount shouldn't be less than legToken's market value"
         );
 
@@ -137,7 +145,7 @@ contract EquitySwap is Ownable, PriceFeeds {
             startDate: startDate,
             status: Status.Open,
             pairLegId: 0, // Status.Open also means the pairLegId is 0
-            benchPrice: 0 // BenchPrice is updatated on the startDate
+            benchPrice: legTokenLatestPrice // TODO more check(store need to compare with the deposited USDC) BenchPrice is updatated on the startDate
          });
 
         legs[maxLegId] = leg;
@@ -166,17 +174,25 @@ contract EquitySwap is Ownable, PriceFeeds {
         );
 
         uint256 pairTokenLatestPrice = uint256(getLatestPrice(pairToken));
-        // console2.log("pairer settledStableTokenAmount",settledStableTokenAmount);
-        // console2.log("notional*pairTokenLatestPrice",notional*pairTokenLatestPrice);
+        uint8 priceDecimials = priceFeedDecimals(pairToken);
+        uint8 pairTokenDecimals = ERC20(pairToken).decimals();
+        // console2.log("pairTokenLatestPrice",pairTokenLatestPrice / 10**priceDecimials ,"USDC");
+        // console2.log("pairer settledStableTokenAmount",settledStableTokenAmount / 10**ERC20(settledStableToken).decimals(),"USDC");
+        // console2.log("pairToken Market Value(USDC)",((notional / 10**pairTokenDecimals) * uint256(pairTokenLatestPrice) / (10**(priceDecimials)  )),"USDC"); // TODO CHECK
+        // Now compare the value based on USDC verse USD. such as 1500USDC > 1000USD, elimate the fraction part (10_000.23  USDC > 30000.49 USD)
+        /**
+         for exmaple: swaper deposited 1500USDC, the legToken's latest value is 1000 ETH/USD, the notional is 1 ETH, below comparing 1500USDC verse 1000USD
+         emiliating the fraction part, though the USD's decimals is 8, the USDC's decimals is 6
+         */
         require(
-            settledStableTokenAmount >= notional * pairTokenLatestPrice,
-            "The settledStableTokenAmount shouldn't less than legToken's market value"
+            settledStableTokenAmount / 10**ERC20(settledStableToken).decimals() >= (notional * uint256(pairTokenLatestPrice) / 10**(pairTokenDecimals + priceDecimials)),
+            "The settledStableTokenAmount shouldn't be less than legToken's market value"
         );
 
         // Transfer the stable coin of the orderMaker and orderTaker to the contract
         IERC20(settledStableToken).transferFrom(msg.sender, address(this), settledStableTokenAmount);
 
-        uint256 pairLegTokenLatestPrice = uint256(getLatestPrice(pairToken));
+        int256 pairLegTokenLatestPrice = getLatestPrice(pairToken);
         Leg memory pairLeg = Leg({
             swaper: msg.sender,
             tokenAddress: pairToken,
@@ -192,17 +208,32 @@ contract EquitySwap is Ownable, PriceFeeds {
         legs[originalLegId].pairLegId = maxLegId;
         legs[originalLegId].status = Status.Active;
 
-        uint256 originalLegPrice = uint256(getLatestPrice(originalLeg.tokenAddress));
+        int256 originalLegPrice = getLatestPrice(originalLeg.tokenAddress);
         legs[originalLegId].benchPrice = originalLegPrice;
         maxLegId++;
 
         emit PairSwap(originalLegId, legs[originalLegId].pairLegId, msg.sender, pairToken, notional);
 
-        // inform chainlink deal with the deal when the time is arrived.
+        // inform chainlink deal with the deal when the time is arrived. or was called by users
     }
 
     // This function was called by chainlink or by the user
     // TODO Use historical price instead
+    /**
+       @dev The function will settle the swap, and the winner will get the profit. the profit was calculated by the increased rate mulitiply the benchMarketCap
+       x`: the latest price of the original leg token
+       x : the bench price of the original leg token
+       y`: the latest price of the pair leg token
+       y : the bench price of the pair leg token
+       benchMarketCap: the smaller market cap of the two legs
+
+       when x`/x > y`/y, the profit is (x`*y - x*y`)*benchMarketCap/(x*y)
+       when y`/y > x`/x, the profit is (y`*x - y*x`)*benchMarketCap/(y*x)
+       how to get the formula:
+       if y`/y > x`/x
+       (y`/y-x`/x)*benchMarketCap => (y`*x - y*x`)/y*x*benchMarketCap=>(y`*x - y*x`)*benchMarketCap/(y*x)
+    
+    */
     function settleSwap(uint64 legId) external {
         // TODO more conditions check
         // 1. time check
@@ -211,51 +242,58 @@ contract EquitySwap is Ownable, PriceFeeds {
         require(originalLeg.status == Status.Active && pairLeg.status == Status.Active, "The leg is not active");
 
         // TODO precious and arithmetic calculation check, security check
-        uint256 originalLegTokenLatestPrice = uint256(getLatestPrice(originalLeg.tokenAddress));
-        uint256 pairLegTokenLatestPrice = uint256(getLatestPrice(pairLeg.tokenAddress));
+        int256 originalLegTokenLatestPrice = getLatestPrice(originalLeg.tokenAddress);
+        int256 pairLegTokenLatestPrice = getLatestPrice(pairLeg.tokenAddress);
 
-        uint256 originalLegMarketCap = originalLeg.benchPrice * originalLeg.notional;
-        uint256 pairLegMarketCap = pairLeg.benchPrice * pairLeg.notional;
+        uint8 legTokenDecimals = ERC20(originalLeg.tokenAddress).decimals();
+        uint8 pairTokenDecimals = ERC20(pairLeg.tokenAddress).decimals();
+        uint8 legTokenPriceDecimials = priceFeedDecimals(originalLeg.tokenAddress);
+        uint8 pairTokenPriceDecimials = priceFeedDecimals(pairLeg.tokenAddress);
+        uint8 usdcDecimals = ERC20(settledStableToken).decimals();
+
+        // below marketCap was expressed by USD
+        uint256 originalLegMarketCap = (originalLeg.notional / 10**legTokenDecimals) * uint256(originalLeg.benchPrice);
+        // console2.log("originalLegMarketCap",originalLegMarketCap / 10**usdcDecimals, "USDC");
+        uint256 pairLegMarketCap = (pairLeg.notional / 10**pairTokenDecimals) * uint256(pairLeg.benchPrice);
+        // console2.log("pairLegMarketCap",pairLegMarketCap / 10**usdcDecimals, "USDC");
         uint256 benchMarketCap = originalLegMarketCap > pairLegMarketCap ? pairLegMarketCap : originalLegMarketCap;
         // compare the price change for the two legs
         address winner;
         uint256 profit;
         uint256 updateLegId = legId;
         // TODO, It's rare that existed the equal, should limited in a range(as 0.1% -> 0.2%)
-        // x`/x = y`/y => x`*y = x*y` => x`*y - x*y` = 0
         if (originalLegTokenLatestPrice * pairLeg.benchPrice == pairLegTokenLatestPrice * originalLeg.benchPrice) {
             // the increased rates of  both legToken price are all equal
-            // skip emit equal
-            // x`/x > y`/y => x`*y > x*y` => x`*y - x*y` > 0
-        } else if (originalLegTokenLatestPrice * pairLeg.benchPrice > pairLegTokenLatestPrice * originalLeg.benchPrice)
-        {
-            console2.log("originalLeg token price change:", originalLeg.benchPrice, originalLegTokenLatestPrice);
-            console2.log("pairLeg token price change:", pairLeg.benchPrice, pairLegTokenLatestPrice);
-            console2.log("benchMarketCap", benchMarketCap, "USDC");
-            // how to calculate the profit: (x`/x-y`/y)*benchMarketCap => (x`*y - x*y`)/x*y*benchMarketCap=>(x`*y -
-            // x*y`)*benchMarketCap/(x*y)
+            emit NoProfitWhileSettle(legId, originalLeg.swaper, pairLeg.swaper);
+            return;
+        } else if (originalLegTokenLatestPrice * pairLeg.benchPrice > pairLegTokenLatestPrice * originalLeg.benchPrice){   
+            // console2.log("originalLeg token price change:", uint256(originalLeg.benchPrice) / 10**legTokenPriceDecimials, uint256(originalLegTokenLatestPrice) / 10**legTokenPriceDecimials);
+            // console2.log("pairLeg token price change:", uint256(pairLeg.benchPrice) / 10**pairTokenPriceDecimials, uint256(pairLegTokenLatestPrice) / 10**pairTokenPriceDecimials);
+            {
+                profit = (
+                    uint256(originalLegTokenLatestPrice * pairLeg.benchPrice - originalLeg.benchPrice * pairLegTokenLatestPrice)
+                        * benchMarketCap
+                ) / uint256(originalLeg.benchPrice * pairLeg.benchPrice);
+                winner = originalLeg.swaper;
+            }
+            
+        } else { 
+            // console2.log("originalLeg token price change:", uint256(originalLeg.benchPrice) / 10**legTokenPriceDecimials, uint256(originalLegTokenLatestPrice) / 10**legTokenPriceDecimials);
+            // console2.log("pairLeg token price change:", uint256(pairLeg.benchPrice) / 10**pairTokenPriceDecimials, uint256(pairLegTokenLatestPrice) / 10**pairTokenPriceDecimials);
             profit = (
-                (originalLegTokenLatestPrice * pairLeg.benchPrice - pairLegTokenLatestPrice * originalLeg.benchPrice)
+                uint256(pairLegTokenLatestPrice * originalLeg.benchPrice - originalLegTokenLatestPrice * pairLeg.benchPrice)
                     * benchMarketCap
-            ) / (originalLeg.benchPrice * pairLeg.benchPrice);
-            winner = originalLeg.swaper;
-        } else {
-            console2.log("originalLeg token price change:", originalLeg.benchPrice, originalLegTokenLatestPrice);
-            console2.log("pairLeg token price change:", pairLeg.benchPrice, pairLegTokenLatestPrice);
-            console2.log("benchMarketCap", benchMarketCap, "USDC");
-            profit = (
-                (pairLegTokenLatestPrice * originalLeg.benchPrice - originalLegTokenLatestPrice * pairLeg.benchPrice)
-                    * benchMarketCap
-            ) / (originalLeg.benchPrice * pairLeg.benchPrice);
-            // pairLeg win
+            ) / uint256(originalLeg.benchPrice * pairLeg.benchPrice);
+
             winner = pairLeg.swaper;
             updateLegId = originalLeg.pairLegId;
         }
-        console2.log("winner:", winner);
-        console2.log("profit:", profit);
+        profit = convertedBySettleStableCoin(profit);
+        // console2.log("winner:", winner);
+        // console2.log("profit:", profit / 10**usdcDecimals, "USDC");
 
         IERC20(settledStableToken).transfer(winner, profit);
-        legs[updateLegId].settledStableTokenAmount = legs[updateLegId].settledStableTokenAmount - profit;
+        legs[updateLegId].settledStableTokenAmount = legs[updateLegId].settledStableTokenAmount - profit; // TODO should consider price does not change
 
         // when end, the status of the two legs should be settled
         legs[legId].status = Status.Settled;
@@ -283,5 +321,15 @@ contract EquitySwap is Ownable, PriceFeeds {
     function removeYieldStrategy(uint8 yieldStrategyId) external onlyOwner {
         require(yieldStrategys[yieldStrategyId].yieldAddress != address(0), "The yieldStrategyId not exists");
         delete yieldStrategys[yieldStrategyId];
+    }
+
+
+    // @notice the amount value was based on the priceFeedDecimals(8 decimals for ETH/USD,BTC/USD on arbitrum), but the settledStableToken's decimals is 6
+    // TODO if  settledStableToken's decimals > priceFeedDecimals
+    function convertedBySettleStableCoin(uint256 amount) internal returns (uint256) {
+        uint8 settledStableTokenDecimals = ERC20(settledStableToken).decimals();
+        uint8 priceFeedDecimals =  8;// Temporary set to 18 TODO
+
+        return amount / 10**(priceFeedDecimals - settledStableTokenDecimals );
     }
 }
