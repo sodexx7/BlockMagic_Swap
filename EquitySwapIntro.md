@@ -16,6 +16,8 @@ focusing on Price Return Swap.
 1. orderMaker select:
 
 - Notional ($10, $100, $1,000)
+  - $100 X 5 ==> creates 5 swap deals of $100 Notional
+  - If someone else wants to take only $100, he will "take" one of the swap deal
 - Leg A (AAPL, AMZN, NVDA, etc...)
 - Leg B (AAPL, AMZN, NVDA, etc...) **Can choose more than one**
 - Start Date
@@ -113,13 +115,16 @@ focusing on Price Return Swap.
 
 - Should allow Notional (10/100/1000) with multiplier
   - This will allow matching of position
-- We should introduce a Margin call mechanism:
+- We should introduce a Margin call mechanism (version 2):
+  - Reserve
   - Dipslay margin call satus from contract
   - Give 24h to 36h (1 to 1.5 days) to repay
-- For the minimum margin
-  - We can use the volatily 1 week of the underlying
-- We should only give yield only for shot leg
+  - For the minimum margin
+    - We can use the volatily 1 week of the underlying
+- We should only give yield only for short leg
   - To avoid arbitrage !!!
 - Problem if we use ratio to sanction people with less money
   - Need to check for arbitrage opportunity (Opening a lot of contract)
 - We should do Long GOOGLE VS Short Google i/o GOOGLE VS AMAZON
+V2 - V3
+- Fix rate VS Google => Aave/Defi Rate Vs Google perfomance
