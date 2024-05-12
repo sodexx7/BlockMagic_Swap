@@ -7,14 +7,14 @@ import { console2 } from "forge-std/src/console2.sol";
 
 /**
  * @title The PriceFeeds contract
- * @notice Acontract that returns latest price from Chainlink Price Feeds
+ * @notice A contract that returns latest price from Chainlink Price Feeds
  */
 abstract contract PriceFeeds is Ownable {
     // TODO, Now directly get by price, can apply register in the future
-    // tokenAddress=>priceFeedAddress 
-    mapping (address => address) priceFeedAddresses;
+    // tokenAddress=>priceFeedAddress
+    mapping(address => address) priceFeedAddresses;
 
-    constructor(address _tokenAddress,address _priceFeed) {
+    constructor(address _tokenAddress, address _priceFeed) {
         priceFeedAddresses[_tokenAddress] = _priceFeed;
     }
 
@@ -27,16 +27,15 @@ abstract contract PriceFeeds is Ownable {
     //  TODO, should check updatTime, keep the price is the latest price
     function getLatestPrice(address tokenAddress) public view returns (int256) {
         (
-            ,
             /* uint80 roundID */
+            ,
             int256 price,
+            /* uint256 startedAt */
             ,
-            ,
-
-        ) = /* uint256 startedAt */
             /* uint256 timeStamp */
+            ,
             /* uint80 answeredInRound */
-            AggregatorV3Interface(priceFeedAddresses[tokenAddress]).latestRoundData();
+        ) = AggregatorV3Interface(priceFeedAddresses[tokenAddress]).latestRoundData();
 
         return price;
     }
@@ -50,16 +49,14 @@ abstract contract PriceFeeds is Ownable {
         return priceFeedAddresses[tokenAddress];
     }
 
-    //TODO for test 
+    // TODO for test
     function description(address tokenAddress) public view returns (string memory) {
         return AggregatorV3Interface(priceFeedAddresses[tokenAddress]).description();
     }
 
     // TODO, below function should optimize
-    function addPriceFeed(address tokenAddress,address priceFeedAddress) external onlyOwner {
-
+    function addPriceFeed(address tokenAddress, address priceFeedAddress) external onlyOwner {
         priceFeedAddresses[tokenAddress] = priceFeedAddress;
-
     }
 
     function priceFeedDecimals(address tokenAddress) public view returns (uint8) {
