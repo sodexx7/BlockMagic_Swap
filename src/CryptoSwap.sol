@@ -198,8 +198,8 @@ contract CryptoSwap is Ownable, PriceFeeds {
         legs[originalLegId].pairLegId = maxLegId;
         legs[originalLegId].status = Status.Active;
 
-        // // int256 originalLegPrice = getLatestPrice(originalLeg.tokenAddress);
-        // // legs[originalLegId].benchPrice = originalLegPrice;
+        int256 originalLegPrice = getLatestPrice(originalLeg.tokenAddress);
+        legs[originalLegId].benchPrice = originalLegPrice;
         maxLegId++;
 
         emit PairSwap(originalLegId, legs[originalLegId].pairLegId, msg.sender);
