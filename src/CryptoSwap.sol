@@ -51,7 +51,7 @@ contract CryptoSwap is Ownable, PriceFeeds {
      * @notice The Leg struct
      * @param swaper The address of the swaper
      * @param tokenAddress The address of the token
-     * @param notionalAmount The notional value of the token, users should select a option for the notional value
+     * @param notionalAmount The notional value of the swap, users should select a option for the notional value
      * // //  * @param settledStableTokenAmount The amount of the stable token
      * @param balance The balance of the leg
      * @param benchPrice The price of the token when open the swap
