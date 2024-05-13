@@ -56,9 +56,22 @@ contract CryptoSwapTest is Test {
         notionalValues[2] = 1000e6;
         notionalValues[3] = 10_000e6;
 
+        // yieldStrategys
+        // yieldStrategys = new YieldStrategys([1, 2, 3], [address(0x111), address(0x222), address(0x333)]);
+        uint8[] memory yiedIds = new uint8[](1);
+        yiedIds[0] = 1;
+        address[] memory yieldAddress = new address[](1);
+        yieldAddress[0] = address(0x111);
+
         // create cryptoSwap contract meanwhile priceFeed for ETH/USD, BTC/USD
         cryptoSwap = new CryptoSwap(
-            address(usdcContractAddress), ethTokenAddress, ethPriceFeedAddress, notionalIds, notionalValues
+            address(usdcContractAddress),
+            ethTokenAddress,
+            ethPriceFeedAddress,
+            notionalIds,
+            notionalValues,
+            yiedIds,
+            yieldAddress
         );
         cryptoSwap.addPriceFeed(btcTokenAddress, btcPriceFeedAddress);
     }

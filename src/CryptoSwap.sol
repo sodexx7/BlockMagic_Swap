@@ -6,8 +6,9 @@ import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/Saf
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import "./PriceFeeds.sol";
+import "./YieldStrategys.sol";
 
-contract CryptoSwap is Ownable, PriceFeeds {
+contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
     using SafeERC20 for IERC20;
 
     /// @notice The balances of the users
@@ -106,15 +107,17 @@ contract CryptoSwap is Ownable, PriceFeeds {
     // TODO check Ownable(msg.sender)
     constructor(
         // // uint8 _period,
-        /*uint8[] memory yields, address[] memory yieldAddress,*/
         address _settledStableToken,
         address _tokenAddress,
         address _priceFeed,
         uint8[] memory notionalIds,
-        uint256[] memory notionalValues
+        uint256[] memory notionalValues,
+        uint8[] memory yieldIds,
+        address[] memory yieldAddress
     )
         Ownable(msg.sender)
         PriceFeeds(_tokenAddress, _priceFeed)
+        YieldStrategys(yieldIds, yieldAddress)
     {
         // // period = _period;
         settledStableToken = _settledStableToken;
@@ -125,13 +128,6 @@ contract CryptoSwap is Ownable, PriceFeeds {
         for (uint8 i; i < notionalIds.length; i++) {
             notionalValueOptions[notionalIds[i]] = notionalValues[i];
         }
-
-        // require(yields.length == yieldAddress.length, "The length of the yields and yieldAddress should be equal");
-        // for(uint8 i; i < yields.length; i++) {
-        //     yieldStrategys[yields[i]] = YieldStrategy({
-        //         yieldAddress: yieldAddress[i]
-        //     });
-        // }
     }
 
     // TODO: When open the swap, should grant the contract can use the legToken along with the notional
@@ -316,18 +312,5 @@ contract CryptoSwap is Ownable, PriceFeeds {
 
     function queryLeg(uint64 legId) external view returns (Leg memory) {
         return legs[legId];
-    }
-
-    //  only contract can manage the yieldStrategs
-    function addYieldStrategy(uint8 yieldStrategyId, address yieldAddress) external onlyOwner {
-        require(yieldStrategys[yieldStrategyId].yieldAddress != address(0), "The yieldStrategyId already exists");
-
-        YieldStrategy memory yieldStrategy = YieldStrategy({ yieldAddress: yieldAddress });
-        yieldStrategys[yieldStrategyId] = yieldStrategy;
-    }
-
-    function removeYieldStrategy(uint8 yieldStrategyId) external onlyOwner {
-        require(yieldStrategys[yieldStrategyId].yieldAddress != address(0), "The yieldStrategyId not exists");
-        delete yieldStrategys[yieldStrategyId];
     }
 }
