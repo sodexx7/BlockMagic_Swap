@@ -10,22 +10,22 @@ import { CryptoSwap } from "../src/CryptoSwap.sol";
 import "../src/test/mocks/MockV3Aggregator.sol";
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-import {IERC20,ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IERC20, ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract CryptoSwapTestFork is Test {
-
     // the identifiers of the forks
     uint256 mainnetFork;
     uint256 mainnetFork2;
 
     CryptoSwap internal cryptoSwap;
-    address internal ethTokenAddress = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);// WETH Ethereum Mainnet
-    address internal btcTokenAddress = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);// WBTC Ethereum Mainnet
+    address internal ethTokenAddress = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH Ethereum Mainnet
+    address internal btcTokenAddress = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599); // WBTC Ethereum Mainnet
     address internal swaper = address(0x991);
     address internal pairer = address(0x992);
     address ethPriceFeedAddress = address(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419); // ETH/USD Ethereum Mainnet
     address btcPriceFeedAddress = address(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c); // BTC/USD Ethereum Mainnet
-    address usdcContractAddress = address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC contract address on Ethereum Mainnet
+    address usdcContractAddress = address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC contract address on
+        // Ethereum Mainnet
     ERC20 internal usdcContract;
 
     uint8[] yieldIds = [1, 2, 3];
@@ -45,8 +45,8 @@ contract CryptoSwapTestFork is Test {
      * Initial price for ETH/USD: 1000, BTC/USD: 60_000, whose decimals are 8
      */
     function setUp() public virtual {
-        mainnetFork =  vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_505_400 }); // before 30 days  
-        mainnetFork2 =  vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_865_400 });  // around today
+        mainnetFork = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_505_400 }); // before 30 days
+        mainnetFork2 = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_865_400 }); // around today
         vm.selectFork(mainnetFork);
         usdcContract = ERC20(usdcContractAddress);
 
@@ -92,11 +92,11 @@ contract CryptoSwapTestFork is Test {
         // TODO: swapterUsdcAmount should not be total notional amount, for example divided by 10
         // uint256 swaperUsdcAmount = (cryptoSwap.notionalValueOptions(4)) / 10; // 10_000e6 10,000 USDC
         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
-        deal(usdcContractAddress, swaper, swaperUsdcAmount); 
+        deal(usdcContractAddress, swaper, swaperUsdcAmount);
 
         vm.startPrank(swaper);
         usdcContract.approve(address(cryptoSwap), swaperUsdcAmount);
-        cryptoSwap.openSwap(4, 1, ethTokenAddress, uint64(startDate),yieldIds[0]); // yieldId yearn
+        cryptoSwap.openSwap(4, 1, ethTokenAddress, uint64(startDate), yieldIds[0]); // yieldId yearn
         vm.stopPrank();
 
         // check the corresponding leg info
@@ -120,7 +120,7 @@ contract CryptoSwapTestFork is Test {
         // TODO: swapterUsdcAmount should not be total notional amount, for example divided by 10
         // uint256 swaperUsdcAmount = (cryptoSwap.notionalValueOptions(4) * notionalCount) / 10; // 10_000e6 10,000 USDC
         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4) * notionalCount; // 50_000e6 50,000 USDC
-        deal(usdcContractAddress, swaper, swaperUsdcAmount); 
+        deal(usdcContractAddress, swaper, swaperUsdcAmount);
 
         vm.startPrank(swaper);
         usdcContract.approve(address(cryptoSwap), swaperUsdcAmount);
@@ -131,7 +131,7 @@ contract CryptoSwapTestFork is Test {
         legIds[3] = uint64(4);
         legIds[4] = uint64(5);
         emit BatchOpenSwap(swaper, ethTokenAddress, legIds, swaperUsdcAmount, notionalCount, startDate);
-        cryptoSwap.openSwap(4, notionalCount, ethTokenAddress, uint64(startDate),yieldIds[0]); // yieldId yearn
+        cryptoSwap.openSwap(4, notionalCount, ethTokenAddress, uint64(startDate), yieldIds[0]); // yieldId yearn
         vm.stopPrank();
 
         for (uint8 i = 1; i <= notionalCount; i++) {
@@ -152,20 +152,20 @@ contract CryptoSwapTestFork is Test {
         uint256 startDate = block.timestamp + 1 days;
         // TODO: swapterUsdcAmount should not be total notional amount, for example divided by 10
         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
-        deal(usdcContractAddress, swaper, swaperUsdcAmount); 
+        deal(usdcContractAddress, swaper, swaperUsdcAmount);
 
         vm.startPrank(swaper);
         usdcContract.approve(address(cryptoSwap), swaperUsdcAmount);
-        cryptoSwap.openSwap(4, 1, ethTokenAddress, uint64(startDate),yieldIds[0]); // yieldId yearn
+        cryptoSwap.openSwap(4, 1, ethTokenAddress, uint64(startDate), yieldIds[0]); // yieldId yearn
         vm.stopPrank();
 
         uint64 originalLegId = 1;
         uint256 pairUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
-        deal(usdcContractAddress, pairer, pairUsdcAmount); 
+        deal(usdcContractAddress, pairer, pairUsdcAmount);
 
         vm.startPrank(pairer);
         usdcContract.approve(address(cryptoSwap), pairUsdcAmount);
-        cryptoSwap.pairSwap(originalLegId, pairUsdcAmount, btcTokenAddress,yieldIds[0]); // yieldId yearn
+        cryptoSwap.pairSwap(originalLegId, pairUsdcAmount, btcTokenAddress, yieldIds[0]); // yieldId yearn
         vm.stopPrank();
 
         CryptoSwap.Leg memory originalLeg = cryptoSwap.queryLeg(1);
@@ -194,22 +194,22 @@ contract CryptoSwapTestFork is Test {
         ///  opener  ///
         uint256 startDate = block.timestamp + 1 days;
         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
-        deal(usdcContractAddress, swaper, swaperUsdcAmount); 
+        deal(usdcContractAddress, swaper, swaperUsdcAmount);
 
         vm.startPrank(swaper);
         usdcContract.approve(address(cryptoSwap), swaperUsdcAmount);
-        cryptoSwap.openSwap(4, 1, ethTokenAddress, uint64(startDate),yieldIds[0]); // yieldId yearn
+        cryptoSwap.openSwap(4, 1, ethTokenAddress, uint64(startDate), yieldIds[0]); // yieldId yearn
         vm.stopPrank();
         ///  opener  ///
 
         ///  pairer  ///
         uint64 originalLegId = 1;
         uint256 pairUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
-        deal(usdcContractAddress, pairer, pairUsdcAmount); 
+        deal(usdcContractAddress, pairer, pairUsdcAmount);
 
         vm.startPrank(pairer);
         usdcContract.approve(address(cryptoSwap), pairUsdcAmount);
-        cryptoSwap.pairSwap(originalLegId, pairUsdcAmount, btcTokenAddress,yieldIds[0]); // yieldId yearn
+        cryptoSwap.pairSwap(originalLegId, pairUsdcAmount, btcTokenAddress, yieldIds[0]); // yieldId yearn
         vm.stopPrank();
         ///  pairer  ///
 
@@ -221,37 +221,34 @@ contract CryptoSwapTestFork is Test {
     }
 
     function test_settleOpenerWinFork() external {
-
         uint256 startDate = block.timestamp + 1 days;
         ///  opener  ///
-        
+
         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
-        deal(usdcContractAddress, swaper, swaperUsdcAmount); 
+        deal(usdcContractAddress, swaper, swaperUsdcAmount);
 
         vm.startPrank(swaper);
         usdcContract.approve(address(cryptoSwap), swaperUsdcAmount);
-        cryptoSwap.openSwap(4, 1, ethTokenAddress, uint64(startDate),yieldIds[0]); // yieldId yearn
+        cryptoSwap.openSwap(4, 1, ethTokenAddress, uint64(startDate), yieldIds[0]); // yieldId yearn
         vm.stopPrank();
         ///  opener  ///
-        
-      
 
         ///  pairer  ///
         uint64 originalLegId = 1;
         uint256 pairUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
-        deal(usdcContractAddress, pairer, pairUsdcAmount); 
+        deal(usdcContractAddress, pairer, pairUsdcAmount);
 
         vm.startPrank(pairer);
         usdcContract.approve(address(cryptoSwap), pairUsdcAmount);
-        cryptoSwap.pairSwap(originalLegId, pairUsdcAmount, btcTokenAddress,yieldIds[0]); // yieldId yearn
+        cryptoSwap.pairSwap(originalLegId, pairUsdcAmount, btcTokenAddress, yieldIds[0]); // yieldId yearn
         vm.stopPrank();
-        
+
         ///  pairer  ///
 
         // // select a specific fork
         vm.makePersistent(address(cryptoSwap));
 
-           // select a different fork
+        // select a different fork
         vm.selectFork(mainnetFork2);
 
         // // the increased price of the eth > btc
@@ -265,8 +262,12 @@ contract CryptoSwapTestFork is Test {
         uint256 cryptoSwapUsdcAmountAfter = usdcContract.balanceOf(address(cryptoSwap));
         console2.log("swaperUsdcAmountBefore", swaperUsdcAmountBefore / 10 ** ERC20(usdcContract).decimals(), "USDC");
         console2.log("swaperUsdcAmountAfter", swaperUsdcAmountAfter / 10 ** ERC20(usdcContract).decimals(), "USDC");
-        console2.log("cryptoSwapUsdcAmountBefore", cryptoSwapUsdcAmountBefore / 10 ** ERC20(usdcContract).decimals(), "USDC");
-        console2.log("cryptoSwapUsdcAmountAfter", cryptoSwapUsdcAmountAfter / 10 ** ERC20(usdcContract).decimals(), "USDC");
+        console2.log(
+            "cryptoSwapUsdcAmountBefore", cryptoSwapUsdcAmountBefore / 10 ** ERC20(usdcContract).decimals(), "USDC"
+        );
+        console2.log(
+            "cryptoSwapUsdcAmountAfter", cryptoSwapUsdcAmountAfter / 10 ** ERC20(usdcContract).decimals(), "USDC"
+        );
 
         // // 1000e8 => 1500e8,legToken increased 50%, bench amount of USDC:  10_000. profit 5000USDC
         // assertEq(5000e6, swaperUsdcAmountAfter - swaperUsdcAmountBefore);
@@ -450,50 +451,50 @@ contract CryptoSwapTestFork is Test {
         vm.selectFork(mainnetFork);
         address swaper1 = address(0x66666);
         uint256 swaperUsdcAmount1 = cryptoSwap.notionalValueOptions(1); // 10e6 10 USDC
-        deal(usdcContractAddress, swaper1, swaperUsdcAmount1); 
+        deal(usdcContractAddress, swaper1, swaperUsdcAmount1);
 
         address swaper2 = address(0x77777);
         uint256 swaperUsdcAmount2 = cryptoSwap.notionalValueOptions(2); // 100e6 100 USDC
-        deal(usdcContractAddress, swaper2, swaperUsdcAmount2); 
+        deal(usdcContractAddress, swaper2, swaperUsdcAmount2);
 
         address swaper3 = address(0x88889);
         uint256 swaperUsdcAmount3 = cryptoSwap.notionalValueOptions(3); // 1000e6 1000 USDC
-        deal(usdcContractAddress, swaper3, swaperUsdcAmount3); 
+        deal(usdcContractAddress, swaper3, swaperUsdcAmount3);
 
         address pairer1 = address(0x66666999);
         uint256 pairerUsdcAmount1 = cryptoSwap.notionalValueOptions(1); // 10e6 10 USDC
-        deal(usdcContractAddress, pairer1, pairerUsdcAmount1); 
+        deal(usdcContractAddress, pairer1, pairerUsdcAmount1);
 
         address pairer2 = address(0x77777999);
         uint256 pairerUsdcAmount2 = cryptoSwap.notionalValueOptions(2); // 100e6 100 USDC
-        deal(usdcContractAddress, pairer2, pairerUsdcAmount2); 
+        deal(usdcContractAddress, pairer2, pairerUsdcAmount2);
 
         uint256 startDate = block.timestamp + 1 days;
         vm.startPrank(swaper1);
         usdcContract.approve(address(cryptoSwap), swaperUsdcAmount1);
-        cryptoSwap.openSwap(1, 1, ethTokenAddress, uint64(startDate),yieldIds[0]); // legId = 1
+        cryptoSwap.openSwap(1, 1, ethTokenAddress, uint64(startDate), yieldIds[0]); // legId = 1
         vm.stopPrank();
 
         uint256 startDate2 = block.timestamp + 2 days;
         vm.startPrank(swaper2);
         usdcContract.approve(address(cryptoSwap), swaperUsdcAmount2);
-        cryptoSwap.openSwap(2, 1, ethTokenAddress, uint64(startDate2),yieldIds[0]); // legId = 2
+        cryptoSwap.openSwap(2, 1, ethTokenAddress, uint64(startDate2), yieldIds[0]); // legId = 2
         vm.stopPrank();
 
         uint256 startDate3 = block.timestamp + 3 days;
         vm.startPrank(swaper3);
         usdcContract.approve(address(cryptoSwap), swaperUsdcAmount3);
-        cryptoSwap.openSwap(3, 1, btcTokenAddress, uint64(startDate3),yieldIds[0]); // legId = 3
+        cryptoSwap.openSwap(3, 1, btcTokenAddress, uint64(startDate3), yieldIds[0]); // legId = 3
         vm.stopPrank();
 
         vm.startPrank(pairer1);
         usdcContract.approve(address(cryptoSwap), pairerUsdcAmount1);
-        cryptoSwap.pairSwap(1, pairerUsdcAmount1, btcTokenAddress,yieldIds[0]); // pair legId = 1
+        cryptoSwap.pairSwap(1, pairerUsdcAmount1, btcTokenAddress, yieldIds[0]); // pair legId = 1
         vm.stopPrank();
 
         vm.startPrank(pairer2);
         usdcContract.approve(address(cryptoSwap), pairerUsdcAmount2);
-        cryptoSwap.pairSwap(2, pairerUsdcAmount2, btcTokenAddress,yieldIds[0]); // pair legId = 2
+        cryptoSwap.pairSwap(2, pairerUsdcAmount2, btcTokenAddress, yieldIds[0]); // pair legId = 2
         vm.stopPrank();
 
         uint64 maxId = cryptoSwap.maxLegId();
@@ -570,9 +571,7 @@ contract CryptoSwapTestFork is Test {
             uint256(result.benchPrice) / 10 ** cryptoSwap.priceFeedDecimals(result.tokenAddress),
             cryptoSwap.description(result.tokenAddress)
         );
-        console2.log(
-            "balance:", uint256(result.balance) / 10 ** usdcContract.decimals(), usdcContract.symbol()
-        );
+        console2.log("balance:", uint256(result.balance) / 10 ** usdcContract.decimals(), usdcContract.symbol());
         console2.log("pairLegId:", result.pairLegId);
         console2.log("startDate:", result.startDate);
         console2.log("status:", uint256(result.status));

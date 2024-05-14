@@ -19,12 +19,12 @@ abstract contract YieldStrategys is Ownable {
     // different yield strategy
     // TODO, add bytes action, which specify the corresponding function
     // TODO, Now make the CryptoSwap contract as the recipient
-    function depositYield(uint8 yieldStrategyId, uint256 amount, address recipient) internal returns(uint256){
+    function depositYield(uint8 yieldStrategyId, uint256 amount, address recipient) internal returns (uint256) {
         require(yieldStrategyId != 0, "The yieldStrategyId is invalid");
         address yieldStrategyAddress = yieldStrategies[yieldStrategyId];
         // below function is USDC yVault (yvUSDC) in ethereum mainnet
         // yieldStrategyAddress.deposit(amount,recipient);
-        (bool ok,bytes memory result) =
+        (bool ok, bytes memory result) =
             yieldStrategyAddress.call(abi.encodeWithSignature("deposit(uint256,address)", amount, recipient));
         require(ok);
         return abi.decode(result, (uint256));
@@ -32,15 +32,16 @@ abstract contract YieldStrategys is Ownable {
 
     // TODO  when dealing with withdraw yields,transfer to the CryptoSwap or directly to the user?
     // TODO, same questions as deposit function
-    function withdrawYield(uint8 yieldStrategyId, uint256 amount, address recipient) internal returns(uint256){
+    function withdrawYield(uint8 yieldStrategyId, uint256 amount, address recipient) internal returns (uint256) {
         require(yieldStrategyId != 0, "The yieldStrategyId is invalid");
         address yieldStrategyAddress = yieldStrategies[yieldStrategyId];
         // below function is USDC yVault (yvUSDC) in ethereum mainnet
         // yieldStrategyAddress.withdraw(amount,recipient);
-        (bool ok,bytes memory result) =
-            yieldStrategyAddress.call(abi.encodeWithSignature("withdraw(uint256,address,uint256)", amount, recipient,1));
+        (bool ok, bytes memory result) = yieldStrategyAddress.call(
+            abi.encodeWithSignature("withdraw(uint256,address,uint256)", amount, recipient, 1)
+        );
         require(ok);
-        console2.log("withdrawYield",abi.decode(result, (uint256)));
+        console2.log("withdrawYield", abi.decode(result, (uint256)));
     }
 
     //  only contract can manage the yieldStrategs
@@ -57,5 +58,4 @@ abstract contract YieldStrategys is Ownable {
     function getYieldStrategy(uint8 _strategyId) external view returns (address) {
         return yieldStrategies[_strategyId];
     }
-
 }

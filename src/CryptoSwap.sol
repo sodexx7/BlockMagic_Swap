@@ -136,7 +136,15 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
     // TODO: For the legToken, should supply options for user's selection. (NOW, BTC, ETH, USDC)
     // TODO: TYPE? Deposited stable coin or directly apply legToken.(Now only support Deposited stable coin)
     // TODO: Maybe need to use wETH instead of ETH directly to apply yield
-    function openSwap(uint8 notionalId, uint8 notionalCount, address legToken, uint64 startDate,uint8 yieldId) external {
+    function openSwap(
+        uint8 notionalId,
+        uint8 notionalCount,
+        address legToken,
+        uint64 startDate,
+        uint8 yieldId
+    )
+        external
+    {
         require(notionalId >= 1, "The notionalId should be greater than 0");
         require(startDate > block.timestamp, "startDate should be greater than now"); // TODO change to custom error
 
@@ -153,10 +161,11 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
         uint256 shares = depositYield(yieldId, balance, address(this));
         legIdShares[maxLegId] = shares;
 
-
         uint64 legId = maxLegId;
         for (uint256 i; i < notionalCount; i++) {
-            _createLeg(legToken, notionalValueOptions[notionalId], int256(notionalValueOptions[notionalId]), startDate,yieldId);
+            _createLeg(
+                legToken, notionalValueOptions[notionalId], int256(notionalValueOptions[notionalId]), startDate, yieldId
+            );
         }
         if (notionalCount == 1) {
             emit OpenSwap(legId, msg.sender, legToken, balance, startDate);
@@ -169,7 +178,7 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
         }
     }
 
-    function pairSwap(uint64 originalLegId, uint256 notionalAmount, address pairToken,uint8 yieldId) external {
+    function pairSwap(uint64 originalLegId, uint256 notionalAmount, address pairToken, uint8 yieldId) external {
         require(notionalAmount == legs[originalLegId].notionalAmount, "Notional amount should pair the leg Value");
 
         Leg memory originalLeg = legs[originalLegId];
@@ -182,11 +191,11 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
             "The user should have enough token to pair the swap"
         );
 
-         // TODO below logic should optimize
-         IERC20(settledStableToken).transferFrom(msg.sender, address(this), notionalAmount);
-         IERC20(settledStableToken).approve(yieldStrategies[yieldId], notionalAmount);
-         uint256 shares = depositYield(yieldId, notionalAmount, address(this));
-         legIdShares[maxLegId] = shares;
+        // TODO below logic should optimize
+        IERC20(settledStableToken).transferFrom(msg.sender, address(this), notionalAmount);
+        IERC20(settledStableToken).approve(yieldStrategies[yieldId], notionalAmount);
+        uint256 shares = depositYield(yieldId, notionalAmount, address(this));
+        legIdShares[maxLegId] = shares;
 
         // TODO: benchPrice should be 0 and updated on the startDate
         int256 pairLegTokenLatestPrice = getLatestPrice(pairToken);
@@ -251,10 +260,9 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
         int256 pairLegTokenLatestPrice = getLatestPrice(pairLeg.tokenAddress);
 
         console2.log("originalLegTokenLatestPrice", originalLegTokenLatestPrice);
-        console2.log("originalLeg.benchPrice",originalLeg.benchPrice);
+        console2.log("originalLeg.benchPrice", originalLeg.benchPrice);
         console2.log("pairLegTokenLatestPrice", pairLegTokenLatestPrice);
         console2.log("originalLeg.benchPrice", pairLeg.benchPrice);
-
 
         // compare the price change for the two legs
         address winner;
@@ -298,10 +306,9 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
 
         // IERC20(settledStableToken).transfer(winner, profit);
         // TODO below function should check
-        console2.log("profit",profit);
+        console2.log("profit", profit);
         uint256 profit2 = withdrawYield(legs[loserLegId].yieldId, 1, address(this));
         // IERC20(settledStableToken).transfer(winner, profit2);
-
 
         // when end, the status of the two legs should be settled
         legs[legId].status = Status.Settled;
@@ -316,7 +323,15 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
         // Confirm the formula is right, especially confirm the loss of precision
     }
 
-    function _createLeg(address legToken, uint256 notionalAmount,int256 balance, uint64 startDate,uint8 yieldId) internal {
+    function _createLeg(
+        address legToken,
+        uint256 notionalAmount,
+        int256 balance,
+        uint64 startDate,
+        uint8 yieldId
+    )
+        internal
+    {
         Leg memory leg = Leg({
             swaper: msg.sender,
             tokenAddress: legToken,
@@ -338,10 +353,11 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
         return legs[legId];
     }
 
-    // TODO ,temp function should consider move to YieldStrategys contract. Are there problems related with applying notionalAmount directly?
+    // TODO ,temp function should consider move to YieldStrategys contract. Are there problems related with applying
+    // notionalAmount directly?
     // convert the share to the underlying amount
-    function convertShareToUnderlyingAmount(uint64 legId, uint256 profit) internal view returns (uint256){
-        console2.log("legIdShares[legId]",legIdShares[legId]);
+    function convertShareToUnderlyingAmount(uint64 legId, uint256 profit) internal view returns (uint256) {
+        console2.log("legIdShares[legId]", legIdShares[legId]);
         return legs[legId].notionalAmount * profit / legIdShares[legId];
     }
 }

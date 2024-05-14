@@ -93,7 +93,8 @@
 //         CryptoSwap.Leg memory result = cryptoSwap.queryLeg(1);
 //         showLegInfo(result);
 
-//         assertEq(result.benchPrice, 0); // only when pairSwap, the benchPrice will be updated, if front-end need to show
+//         assertEq(result.benchPrice, 0); // only when pairSwap, the benchPrice will be updated, if front-end need to
+// show
 //             // the benchPrice, should directly get the price
 //         assertEq(result.pairLegId, 0);
 //         assertEq(result.startDate, startDate);
@@ -106,7 +107,8 @@
 //         uint256 startDate = block.timestamp + 1 days;
 //         uint8 notionalCount = 5;
 //         // TODO: swapterUsdcAmount should not be total notional amount, for example divided by 10
-//         // uint256 swaperUsdcAmount = (cryptoSwap.notionalValueOptions(4) * notionalCount) / 10; // 10_000e6 10,000 USDC
+//         // uint256 swaperUsdcAmount = (cryptoSwap.notionalValueOptions(4) * notionalCount) / 10; // 10_000e6 10,000
+// USDC
 //         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4) * notionalCount; // 50_000e6 50,000 USDC
 //         mintTestUSDC(swaper, swaperUsdcAmount);
 
@@ -360,7 +362,8 @@
 //             "USDC"
 //         );
 //         console2.log(
-//             "cryptoSwapUsdcAmountAfter", cryptoSwapUsdcAmountAfter / 10 ** ERC20(usdcContractAddress).decimals(), "USDC"
+//             "cryptoSwapUsdcAmountAfter", cryptoSwapUsdcAmountAfter / 10 ** ERC20(usdcContractAddress).decimals(),
+// "USDC"
 //         );
 //         // BTC 10_000e8 => 10_500e8, legToken increased 5% bench amount of USDC:  10_000. profit 500USDC
 //         assertEq(500e6, swaperUsdcAmountAfter - swaperUsdcAmountBefore);
@@ -400,7 +403,8 @@
 //     //     uint256 swaperUsdcAmountAfter = usdcContractAddress.balanceOf(swaper);
 //     //     uint256 cryptoSwapUsdcAmountAfter = usdcContractAddress.balanceOf(address(cryptoSwap));
 
-//     //     console2.log("swaperrUsdcAmountBefore", swaperrUsdcAmountBefore / 10**ERC20(usdcContractAddress).decimals()
+//     //     console2.log("swaperrUsdcAmountBefore", swaperrUsdcAmountBefore /
+// 10**ERC20(usdcContractAddress).decimals()
 //     // ,"USDC");
 //     //     console2.log("swaperUsdcAmountAfter", swaperUsdcAmountAfter /
 //     // 10**ERC20(usdcContractAddress).decimals(),"USDC");
