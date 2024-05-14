@@ -2,9 +2,11 @@
 pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import { console2 } from "forge-std/src/console2.sol";
 
 abstract contract YieldStrategys is Ownable {
     mapping(uint8 => address) public yieldStrategies;
+    mapping(uint64 => uint256) public legIdShares;
 
     constructor(uint8[] memory yieldIds, address[] memory yieldAddress) {
         require(yieldIds.length == yieldAddress.length, "The length of the yields and yieldAddress should be equal");
@@ -17,26 +19,28 @@ abstract contract YieldStrategys is Ownable {
     // different yield strategy
     // TODO, add bytes action, which specify the corresponding function
     // TODO, Now make the CryptoSwap contract as the recipient
-    function deposit(uint8 yieldStrategyId, uint256 amount, address recipient) external onlyOwner {
+    function depositYield(uint8 yieldStrategyId, uint256 amount, address recipient) internal returns(uint256){
         require(yieldStrategyId != 0, "The yieldStrategyId is invalid");
         address yieldStrategyAddress = yieldStrategies[yieldStrategyId];
         // below function is USDC yVault (yvUSDC) in ethereum mainnet
         // yieldStrategyAddress.deposit(amount,recipient);
-        (bool result,) =
+        (bool ok,bytes memory result) =
             yieldStrategyAddress.call(abi.encodeWithSignature("deposit(uint256,address)", amount, recipient));
-        require(result, "The deposit failed");
+        require(ok);
+        return abi.decode(result, (uint256));
     }
 
     // TODO  when dealing with withdraw yields,transfer to the CryptoSwap or directly to the user?
     // TODO, same questions as deposit function
-    function withdraw(uint8 yieldStrategyId, uint256 amount, address recipient) external onlyOwner {
+    function withdrawYield(uint8 yieldStrategyId, uint256 amount, address recipient) internal returns(uint256){
         require(yieldStrategyId != 0, "The yieldStrategyId is invalid");
         address yieldStrategyAddress = yieldStrategies[yieldStrategyId];
         // below function is USDC yVault (yvUSDC) in ethereum mainnet
         // yieldStrategyAddress.withdraw(amount,recipient);
-        (bool result,) =
-            yieldStrategyAddress.call(abi.encodeWithSignature("withdraw(uint256,address)", amount, recipient));
-        require(result, "The withdraw failed");
+        (bool ok,bytes memory result) =
+            yieldStrategyAddress.call(abi.encodeWithSignature("withdraw(uint256,address,uint256)", amount, recipient,1));
+        require(ok);
+        console2.log("withdrawYield",abi.decode(result, (uint256)));
     }
 
     //  only contract can manage the yieldStrategs
@@ -53,4 +57,5 @@ abstract contract YieldStrategys is Ownable {
     function getYieldStrategy(uint8 _strategyId) external view returns (address) {
         return yieldStrategies[_strategyId];
     }
+
 }
