@@ -9,5 +9,10 @@
 
    - Apply Delegated Deposit as https://docs.yearn.finance/partners/integration_guide
 
-4. It seems no test data in testnet
-   - TODO check the test data
+4. To make the YieldStrategys work, should test in fork mode
+
+5. As there are more logics behind YieldStrategys, now only supply yearn. Because the amount of usdc per share are
+   changing, should maintain the relationships. Now just return corresponding's value.
+   - yvUSDC(0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE),
+   - API doc: https://docs.yearn.fi/vaults/smart-contracts/vault#withdraw
+   - code: https://github.com/yearn/yearn-vaults/blob/97ca1b2e4fcf20f4be0ff456dabd020bfeb6697b/contracts/Vault.vy#L1033

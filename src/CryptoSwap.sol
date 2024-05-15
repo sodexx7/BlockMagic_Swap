@@ -165,7 +165,14 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
         uint64 legId = maxLegId;
         for (uint256 i; i < notionalCount; i++) {
             _createLeg(
-                legToken, notionalValueOptions[notionalId], int256(notionalValueOptions[notionalId]), startDate, yieldId
+                legToken,
+                notionalValueOptions[notionalId],
+                int256(notionalValueOptions[notionalId]),
+                Status.Open,
+                startDate,
+                0,
+                0,
+                yieldId
             );
         }
         if (notionalCount == 1) {
@@ -200,27 +207,25 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
 
         // TODO: benchPrice should be 0 and updated on the startDate
         int256 pairLegTokenLatestPrice = getLatestPrice(pairToken);
-        Leg memory pairLeg = Leg({
-            swaper: msg.sender,
-            tokenAddress: pairToken,
-            notionalAmount: notionalAmount,
-            yieldId: yieldId,
-            balance: int256(notionalAmount),
-            startDate: originalLeg.startDate,
-            status: Status.Active,
-            pairLegId: originalLegId,
-            benchPrice: pairLegTokenLatestPrice
-        });
 
-        legs[maxLegId] = pairLeg;
-        legs[originalLegId].pairLegId = maxLegId;
+        uint64 pairLegId = _createLeg(
+            pairToken,
+            notionalAmount,
+            int256(notionalAmount),
+            Status.Active,
+            originalLeg.startDate,
+            originalLegId,
+            pairLegTokenLatestPrice,
+            yieldId
+        );
+
+        legs[originalLegId].pairLegId = pairLegId;
         legs[originalLegId].status = Status.Active;
 
         int256 originalLegPrice = getLatestPrice(originalLeg.tokenAddress);
         legs[originalLegId].benchPrice = originalLegPrice;
-        maxLegId++;
 
-        emit PairSwap(originalLegId, legs[originalLegId].pairLegId, msg.sender);
+        emit PairSwap(originalLegId, pairLegId, msg.sender);
     }
 
     // This function was called by chainlink or by the user
@@ -260,11 +265,6 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
         int256 originalLegTokenLatestPrice = getLatestPrice(originalLeg.tokenAddress);
         int256 pairLegTokenLatestPrice = getLatestPrice(pairLeg.tokenAddress);
 
-        console2.log("originalLegTokenLatestPrice", originalLegTokenLatestPrice);
-        console2.log("originalLeg.benchPrice", originalLeg.benchPrice);
-        console2.log("pairLegTokenLatestPrice", pairLegTokenLatestPrice);
-        console2.log("originalLeg.benchPrice", pairLeg.benchPrice);
-
         // compare the price change for the two legs
         address winner;
         uint256 profit;
@@ -282,7 +282,7 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
                 ) * notionalAmount
             ) / uint256(originalLeg.benchPrice * pairLeg.benchPrice);
             winner = originalLeg.swaper;
-
+            console2.log("winner: opener");
             //TODO check update notional value, check the precious
             legs[legId].balance += int256(profit);
             legs[originalLeg.pairLegId].balance -= int256(profit);
@@ -296,21 +296,24 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
 
             legs[legId].balance -= int256(profit);
             legs[originalLeg.pairLegId].balance += int256(profit);
-
+            console2.log("winner: parier");
             winner = pairLeg.swaper;
         }
         // console2.log("winner:", winner);
-        // uint8 usdcDecimals = ERC20(settledStableToken).decimals();
+        uint8 usdcDecimals = ERC20(settledStableToken).decimals();
         // console2.log("profit:", profit / 10**usdcDecimals, "USDC");
 
         // TODO update bench price for the two legs
+        legs[legId].benchPrice = originalLegTokenLatestPrice;
+        legs[originalLeg.pairLegId].benchPrice = pairLegTokenLatestPrice;
 
         // IERC20(settledStableToken).transfer(winner, profit);
         // TODO below function should check
-        console2.log("profit", profit);
-        uint256 profit2 = withdrawYield(legs[loserLegId].yieldId, 1, address(this));
-        console2.log("profit2", profit2);
-        // IERC20(settledStableToken).transfer(winner, profit2);
+        console2.log("expected profit", profit);
+        uint256 actualProfit =
+            withdrawYield(legs[loserLegId].yieldId, convertShareToUnderlyingAmount(loserLegId, profit), address(this));
+        console2.log("actual profit", actualProfit);
+        IERC20(settledStableToken).transfer(winner, actualProfit);
 
         // when end, the status of the two legs should be settled
         legs[legId].status = Status.Settled;
@@ -328,10 +331,14 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
         address legToken,
         uint256 notionalAmount,
         int256 balance,
+        Status status,
         uint64 startDate,
+        uint64 pairLegId,
+        int256 benchPrice,
         uint8 yieldId
     )
         internal
+        returns (uint64 legId)
     {
         Leg memory leg = Leg({
             swaper: msg.sender,
@@ -340,14 +347,15 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
             yieldId: yieldId,
             balance: balance,
             startDate: startDate,
-            status: Status.Open,
-            pairLegId: 0, // Status.Open also means the pairLegId is 0
-            benchPrice: 0 // TODO more check(store need to compare with the deposited USDC) BenchPrice is updatated on
+            status: status,
+            pairLegId: pairLegId, // Status.Open also means the pairLegId is 0
+            benchPrice: benchPrice // TODO more check(store need to compare with the deposited USDC) BenchPrice is
+                // updatated on
                 // the startDate
          });
 
         legs[maxLegId] = leg;
-        maxLegId++;
+        return maxLegId++;
     }
 
     function queryLeg(uint64 legId) external view returns (Leg memory) {
@@ -358,7 +366,7 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
     // notionalAmount directly?
     // convert the share to the underlying amount
     function convertShareToUnderlyingAmount(uint64 legId, uint256 profit) internal view returns (uint256) {
-        console2.log("legIdShares[legId]", legIdShares[legId]);
-        return legs[legId].notionalAmount * profit / legIdShares[legId];
+        uint256 shares = legIdShares[legId] * profit / legs[legId].notionalAmount;
+        return shares;
     }
 }

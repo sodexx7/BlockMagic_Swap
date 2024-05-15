@@ -27,6 +27,7 @@ abstract contract YieldStrategys is Ownable {
         (bool ok, bytes memory result) =
             yieldStrategyAddress.call(abi.encodeWithSignature("deposit(uint256,address)", amount, recipient));
         require(ok);
+        // console2.log("share",abi.decode(result, (uint256)),"deposit amount:",amount);
         return abi.decode(result, (uint256));
     }
 
@@ -41,7 +42,7 @@ abstract contract YieldStrategys is Ownable {
             abi.encodeWithSignature("withdraw(uint256,address,uint256)", amount, recipient, 1)
         );
         require(ok);
-        console2.log("withdrawYield", abi.decode(result, (uint256)));
+        return abi.decode(result, (uint256));
     }
 
     //  only contract can manage the yieldStrategs

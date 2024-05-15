@@ -7,7 +7,7 @@
 1. bun install
 2. anvil, start local chain environment
 3. Test
-   - forge test --match-contract CryptoSwapTest --fork-url http://localhost:8545 -vv
+   - forge test --match-path test/CryptoSwap.t.sol --fork-url http://localhost:8545 -vv
    - forge test --match-test test_settle --fork-url http://localhost:8545 -vv
    - forge test --match-test test_SettleCase --fork-url http://localhost:8545 -vv
    - forge test --match-contract CryptoSwapTestFork (should config API_KEY_ALCHEMY in env )
