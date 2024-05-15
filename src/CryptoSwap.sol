@@ -7,8 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import "./PriceFeeds.sol";
 import "./YieldStrategys.sol";
+import "./DegenFetcher.sol";
 
-contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
+contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
     using SafeERC20 for IERC20;
 
     /// @notice The balances of the users
@@ -308,6 +309,7 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
         // TODO below function should check
         console2.log("profit", profit);
         uint256 profit2 = withdrawYield(legs[loserLegId].yieldId, 1, address(this));
+        console2.log("profit2", profit2);
         // IERC20(settledStableToken).transfer(winner, profit2);
 
         // when end, the status of the two legs should be settled
@@ -315,7 +317,6 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys {
         legs[originalLeg.pairLegId].status = Status.Settled;
 
         // TODO , endDate, just close this swap.
-
         emit SettleSwap(legId, winner, settledStableToken, profit);
 
         // TODO

@@ -258,9 +258,9 @@ contract EquitySwap is Ownable, PriceFeeds {
 
         uint8 legTokenDecimals = ERC20(originalLeg.tokenAddress).decimals();
         uint8 pairTokenDecimals = ERC20(pairLeg.tokenAddress).decimals();
-        uint8 legTokenPriceDecimials = priceFeedDecimals(originalLeg.tokenAddress);
-        uint8 pairTokenPriceDecimials = priceFeedDecimals(pairLeg.tokenAddress);
-        uint8 usdcDecimals = ERC20(settledStableToken).decimals();
+        // uint8 legTokenPriceDecimials = priceFeedDecimals(originalLeg.tokenAddress);
+        // uint8 pairTokenPriceDecimials = priceFeedDecimals(pairLeg.tokenAddress);
+        // uint8 usdcDecimals = ERC20(settledStableToken).decimals();
 
         // below marketCap was expressed by USD
         uint256 originalLegMarketCap = (originalLeg.notional / 10 ** legTokenDecimals) * uint256(originalLeg.benchPrice);
