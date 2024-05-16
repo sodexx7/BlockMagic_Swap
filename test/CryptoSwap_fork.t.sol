@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.25;
 
-import "./InitTest.t.sol";
+import "./InitForkTest.t.sol";
 
-contract CryptoSwapTestFork is InitTest {
+contract CryptoSwapTestFork is InitForkTest {
     /// @dev Basic test. Run it with `forge test -vvv` to see the console log.
     function test_openSwap() external {
         vm.selectFork(mainnetFork);

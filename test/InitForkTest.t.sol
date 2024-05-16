@@ -12,7 +12,7 @@ import "../src/test/mocks/MockV3Aggregator.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import { IERC20, ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract InitTest is Test {
+contract InitForkTest is Test {
     // the identifiers of the forks
     uint256 mainnetFork;
     uint256 mainnetFork2;
@@ -26,6 +26,7 @@ contract InitTest is Test {
     address btcPriceFeedAddress = address(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c); // BTC/USD Ethereum Mainnet
     address usdcContractAddress = address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC contract address on
         // Ethereum Mainnet
+    address yearnYvUSDC = address(0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE); // ethereum mainnet yvUSDC
     ERC20 internal usdcContract;
 
     uint8[] yieldIds = [1, 2, 3];
@@ -82,16 +83,6 @@ contract InitTest is Test {
             yieldAddress
         );
         cryptoSwap.addPriceFeed(btcTokenAddress, btcPriceFeedAddress);
-    }
-
-    function mockupdatePriceFeed(string memory description, int256 price) internal returns (address priceFeed) {
-        if (keccak256(abi.encodePacked("ETH/USD")) == keccak256(abi.encodePacked(description))) {
-            MockV3Aggregator(ethPriceFeedAddress).updateAnswer(price);
-        } else if (keccak256(abi.encodePacked("BTC/USD")) == keccak256(abi.encodePacked(description))) {
-            MockV3Aggregator(btcPriceFeedAddress).updateAnswer(price);
-        } else {
-            //
-        }
     }
 
     function showLegInfo(CryptoSwap.Leg memory result) internal view {
