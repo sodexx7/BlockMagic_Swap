@@ -7,6 +7,9 @@ import "forge-std/src/StdUtils.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { CryptoSwap } from "../src/CryptoSwap.sol";
 
+import { PriceFeeds } from "../src/PriceFeeds.sol";
+import { YieldStrategys } from "../src/YieldStrategys.sol";
+
 import "../src/test/mocks/MockV3Aggregator.sol";
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
@@ -29,7 +32,10 @@ contract InitForkTest is Test {
     address yearnYvUSDC = address(0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE); // ethereum mainnet yvUSDC
     ERC20 internal usdcContract;
 
-    uint8[] yieldIds = [1, 2, 3];
+    PriceFeeds internal priceFeeds;
+    YieldStrategys internal yieldStrategys;
+
+    uint8[] yieldIds;
 
     event NoProfitWhileSettle(uint256 indexed legId, address indexed swaper, address indexed pairer);
     event BatchOpenSwap(
@@ -53,6 +59,17 @@ contract InitForkTest is Test {
 
         // default caller: 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496, the owner of cryptoSwap, USDC
 
+        // create priceFeeds contract TODO ownership transfer
+        priceFeeds = new PriceFeeds(ethTokenAddress, ethPriceFeedAddress);
+        priceFeeds.addPriceFeed(btcTokenAddress, btcPriceFeedAddress);
+
+        // create yieldStrategys contract
+        yieldIds = new uint8[](1);
+        yieldIds[0] = 1; // yearn
+        address[] memory yieldAddress = new address[](1);
+        yieldAddress[0] = yearnYvUSDC;
+        yieldStrategys = new YieldStrategys(yieldIds, yieldAddress, usdcContractAddress);
+
         // user can select the notional value from the following options
         uint8[] memory notionalIds = new uint8[](4);
         notionalIds[0] = 1;
@@ -65,31 +82,17 @@ contract InitForkTest is Test {
         notionalValues[2] = 1000e6;
         notionalValues[3] = 10_000e6;
 
-        // yieldStrategys
-        // yieldStrategys = new YieldStrategys([1, 2, 3], [address(0x111), address(0x222), address(0x333)]);
-        uint8[] memory yiedIds = new uint8[](1);
-        yiedIds[0] = 1; // yearn
-        address[] memory yieldAddress = new address[](1);
-        yieldAddress[0] = address(0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE); // ethereum mainnet yvUSDC
-
         // create cryptoSwap contract meanwhile priceFeed for ETH/USD, BTC/USD
         cryptoSwap = new CryptoSwap(
-            address(usdcContract),
-            ethTokenAddress,
-            ethPriceFeedAddress,
-            notionalIds,
-            notionalValues,
-            yiedIds,
-            yieldAddress
+            address(usdcContract), address(priceFeeds), address(yieldStrategys), notionalIds, notionalValues
         );
-        cryptoSwap.addPriceFeed(btcTokenAddress, btcPriceFeedAddress);
     }
 
     function showLegInfo(CryptoSwap.Leg memory result) internal view {
         console2.log(
             "benchPrice:",
-            uint256(result.benchPrice) / 10 ** cryptoSwap.priceFeedDecimals(result.tokenAddress),
-            cryptoSwap.description(result.tokenAddress)
+            uint256(result.benchPrice) / 10 ** priceFeeds.priceFeedDecimals(result.tokenAddress),
+            priceFeeds.description(result.tokenAddress)
         );
         console2.log("balance:", uint256(result.balance) / 10 ** usdcContract.decimals(), usdcContract.symbol());
         console2.log("pairLegId:", result.pairLegId);

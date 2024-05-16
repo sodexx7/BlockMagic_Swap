@@ -2,16 +2,24 @@
 pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { console2 } from "forge-std/src/console2.sol";
 
-abstract contract YieldStrategys is Ownable {
-    mapping(uint8 => address) public yieldStrategies;
-    mapping(uint64 => uint256) public legIdShares;
+contract YieldStrategys is Ownable {
+    mapping(uint8 => address) public yieldAddresses;
+    address private immutable settledToken;
 
-    constructor(uint8[] memory yieldIds, address[] memory yieldAddress) {
+    constructor(
+        uint8[] memory yieldIds,
+        address[] memory yieldAddress,
+        address settledStableToken
+    )
+        Ownable(_msgSender())
+    {
+        settledToken = settledStableToken;
         require(yieldIds.length == yieldAddress.length, "The length of the yields and yieldAddress should be equal");
         for (uint8 i; i < yieldIds.length; i++) {
-            yieldStrategies[yieldIds[i]] = yieldAddress[i];
+            yieldAddresses[yieldIds[i]] = yieldAddress[i];
         }
     }
 
@@ -19,9 +27,11 @@ abstract contract YieldStrategys is Ownable {
     // different yield strategy
     // TODO, add bytes action, which specify the corresponding function
     // TODO, Now make the CryptoSwap contract as the recipient
-    function depositYield(uint8 yieldStrategyId, uint256 amount, address recipient) internal returns (uint256) {
-        require(yieldStrategyId != 0, "The yieldStrategyId is invalid");
-        address yieldStrategyAddress = yieldStrategies[yieldStrategyId];
+    function depositYield(uint8 yieldId, uint256 amount, address recipient) external returns (uint256) {
+        require(yieldId != 0, "The yieldId is invalid");
+        address yieldStrategyAddress = yieldAddresses[yieldId];
+        IERC20(settledToken).transferFrom(_msgSender(), address(this), amount);
+        IERC20(settledToken).approve(yieldStrategyAddress, amount);
         // below function is USDC yVault (yvUSDC) in ethereum mainnet
         // yieldStrategyAddress.deposit(amount,recipient);
         (bool ok, bytes memory result) =
@@ -33,9 +43,13 @@ abstract contract YieldStrategys is Ownable {
 
     // TODO  when dealing with withdraw yields,transfer to the CryptoSwap or directly to the user?
     // TODO, same questions as deposit function
-    function withdrawYield(uint8 yieldStrategyId, uint256 amount, address recipient) internal returns (uint256) {
-        require(yieldStrategyId != 0, "The yieldStrategyId is invalid");
-        address yieldStrategyAddress = yieldStrategies[yieldStrategyId];
+    function withdrawYield(uint8 yieldId, uint256 amount, address recipient) external returns (uint256) {
+        // approve the yieldStrategy to transfer the amount of yvUSDC token
+
+        require(yieldId != 0, "The yieldId is invalid");
+        // approve the yieldStrategy to transfer the amount of yvUSDC token
+        address yieldStrategyAddress = yieldAddresses[yieldId];
+        IERC20(yieldStrategyAddress).approve(address(this), amount);
         // below function is USDC yVault (yvUSDC) in ethereum mainnet
         // yieldStrategyAddress.withdraw(amount,recipient);
         (bool ok, bytes memory result) = yieldStrategyAddress.call(
@@ -46,17 +60,17 @@ abstract contract YieldStrategys is Ownable {
     }
 
     //  only contract can manage the yieldStrategs
-    function addYieldStrategy(uint8 yieldStrategyId, address yieldAddress) external onlyOwner {
-        require(yieldStrategies[yieldStrategyId] != address(0), "The yieldStrategyId already exists");
-        yieldStrategies[yieldStrategyId] = yieldAddress;
+    function addYieldStrategy(uint8 yieldId, address yieldAddress) external onlyOwner {
+        require(yieldAddresses[yieldId] != address(0), "The yieldId already exists");
+        yieldAddresses[yieldId] = yieldAddress;
     }
 
-    function removeYieldStrategy(uint8 yieldStrategyId) external onlyOwner {
-        require(yieldStrategies[yieldStrategyId] != address(0), "The yieldStrategyId not exists");
-        delete yieldStrategies[yieldStrategyId];
+    function removeYieldStrategy(uint8 yieldId) external onlyOwner {
+        require(yieldAddresses[yieldId] != address(0), "The yieldId not exists");
+        delete yieldAddresses[yieldId];
     }
 
     function getYieldStrategy(uint8 _strategyId) external view returns (address) {
-        return yieldStrategies[_strategyId];
+        return yieldAddresses[_strategyId];
     }
 }

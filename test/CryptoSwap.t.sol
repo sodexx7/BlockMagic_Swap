@@ -4,6 +4,8 @@ pragma solidity 0.8.25;
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { CryptoSwap } from "../src/CryptoSwap.sol";
+import { PriceFeeds } from "../src/PriceFeeds.sol";
+import { YieldStrategys } from "../src/YieldStrategys.sol";
 
 import "../src/test/mocks/MockV3Aggregator.sol";
 import "../src/test/mocks/MockERC20.sol";
@@ -24,7 +26,10 @@ contract CryptoSwapTest is Test {
     MockyvUSDC internal yvUSDCContract;
     address internal yvUSDCContractAddress;
 
-    uint8[] yieldIds = [1, 2, 3];
+    PriceFeeds internal priceFeeds;
+    YieldStrategys internal yieldStrategys;
+
+    uint8[] yieldIds;
 
     event NoProfitWhileSettle(uint256 indexed legId, address indexed swaper, address indexed pairer);
     event BatchOpenSwap(
@@ -48,7 +53,18 @@ contract CryptoSwapTest is Test {
         usdcContract = new MockERC20("USDC", "USDC", 6); // USDC default value on arb is 6
         ethTokenAddress = address(new MockERC20("ETH", "ETH", 18));
         btcTokenAddress = address(new MockERC20("WBTC", "WBTC", 8)); // WBTC default value on arb is 8
-        yvUSDCContract = new MockyvUSDC("YvUSDC", "YvUSDC", 6);
+        yvUSDCContract = new MockyvUSDC("YvUSDC", "YvUSDC", 6, address(usdcContract)); // mock yearn yvUSDC
+
+        // create priceFeeds contract TODO ownership transfer
+        priceFeeds = new PriceFeeds(ethTokenAddress, ethPriceFeedAddress);
+        priceFeeds.addPriceFeed(btcTokenAddress, btcPriceFeedAddress);
+
+        // create yieldStrategys contract
+        yieldIds = new uint8[](1);
+        yieldIds[0] = 1; // yearn
+        address[] memory yieldAddress = new address[](1);
+        yieldAddress[0] = address(yvUSDCContract);
+        yieldStrategys = new YieldStrategys(yieldIds, yieldAddress, address(usdcContract));
 
         // user can select the notional value from the following options
         uint8[] memory notionalIds = new uint8[](4);
@@ -62,25 +78,10 @@ contract CryptoSwapTest is Test {
         notionalValues[2] = 1000e6;
         notionalValues[3] = 10_000e6;
 
-        // yieldStrategys
-        // yieldStrategys = new YieldStrategys([1, 2, 3], [address(0x111), address(0x222), address(0x333)]);
-
-        uint8[] memory yiedIds = new uint8[](1);
-        yiedIds[0] = 1; // yearn
-        address[] memory yieldAddress = new address[](1);
-        yieldAddress[0] = address(yvUSDCContract);
-
         // create cryptoSwap contract meanwhile priceFeed for ETH/USD, BTC/USD
         cryptoSwap = new CryptoSwap(
-            address(usdcContract),
-            ethTokenAddress,
-            ethPriceFeedAddress,
-            notionalIds,
-            notionalValues,
-            yiedIds,
-            yieldAddress
+            address(usdcContract), address(priceFeeds), address(yieldStrategys), notionalIds, notionalValues
         );
-        cryptoSwap.addPriceFeed(btcTokenAddress, btcPriceFeedAddress);
     }
 
     /// @dev Basic test. Run it with `forge test -vvv` to see the console log.
@@ -248,7 +249,7 @@ contract CryptoSwapTest is Test {
 
         // 1000e8 => 1500e8,legToken increased 50%, bench amount of USDC:  10_000. profit 5000USDC
         assertEq(5000e6, swaperUsdcAmountAfter - swaperUsdcAmountBefore);
-        assertEq(5000e6, cryptoSwapUsdcAmountBefore - cryptoSwapUsdcAmountAfter);
+        // assertEq(5000e6, cryptoSwapUsdcAmountBefore - cryptoSwapUsdcAmountAfter); cryptoSwap don't store USDC
     }
 
     function test_settlePairerWin() external {
@@ -289,7 +290,7 @@ contract CryptoSwapTest is Test {
 
         // 60_000e8 => 60_300e8, pairlegToken increased 0.005 bench amount of USDC:  10_000. profit 50USDC
         assertEq(50e6, pairerUsdcAmountAfter - pairerUsdcAmountBefore);
-        assertEq(50e6, cryptoSwapUsdcAmountBefore - cryptoSwapUsdcAmountAfter);
+        // assertEq(50e6, cryptoSwapUsdcAmountBefore - cryptoSwapUsdcAmountAfter); cryptoSwap don't store USDC
     }
 
     // /**
@@ -365,7 +366,7 @@ contract CryptoSwapTest is Test {
         );
         // BTC 10_000e8 => 10_500e8, legToken increased 5% bench amount of USDC:  10_000. profit 500USDC
         assertEq(500e6, swaperUsdcAmountAfter - swaperUsdcAmountBefore);
-        assertEq(500e6, cryptoSwapUsdcAmountBefore - cryptoSwapUsdcAmountAfter);
+        // assertEq(500e6, cryptoSwapUsdcAmountBefore - cryptoSwapUsdcAmountAfter); cryptoSwap don't store USDC
     }
 
     // function test_SettleCase2() external {
@@ -538,8 +539,8 @@ contract CryptoSwapTest is Test {
     function showLegInfo(CryptoSwap.Leg memory result) internal view {
         console2.log(
             "benchPrice:",
-            uint256(result.benchPrice) / 10 ** cryptoSwap.priceFeedDecimals(result.tokenAddress),
-            cryptoSwap.description(result.tokenAddress)
+            uint256(result.benchPrice) / 10 ** priceFeeds.priceFeedDecimals(result.tokenAddress),
+            priceFeeds.description(result.tokenAddress)
         );
         console2.log("balance:", uint256(result.balance) / 10 ** usdcContract.decimals(), usdcContract.symbol());
         console2.log("pairLegId:", result.pairLegId);

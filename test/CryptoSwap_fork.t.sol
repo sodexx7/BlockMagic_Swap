@@ -169,6 +169,8 @@ contract CryptoSwapTestFork is InitForkTest {
         persistantAddresses[0] = yearnYvUSDC;
         persistantAddresses[1] = address(cryptoSwap);
         persistantAddresses[2] = usdcContractAddress;
+        persistantAddresses[3] = address(priceFeeds);
+        persistantAddresses[4] = address(yieldStrategys);
 
         // // select a specific fork
         vm.makePersistent(persistantAddresses);
@@ -195,28 +197,28 @@ contract CryptoSwapTestFork is InitForkTest {
         CryptoSwap.Leg memory openerLegAfter = cryptoSwap.queryLeg(1);
         console2.log(
             "openerLeg benchPrice:",
-            uint256(openerLeg.benchPrice) / 10 ** cryptoSwap.priceFeedDecimals(openerLeg.tokenAddress),
-            cryptoSwap.description(openerLeg.tokenAddress),
+            uint256(openerLeg.benchPrice) / 10 ** priceFeeds.priceFeedDecimals(openerLeg.tokenAddress),
+            priceFeeds.description(openerLeg.tokenAddress),
             uint256(openerLeg.benchPrice)
         );
         console2.log(
             "openerLeg latestPrice:",
-            uint256(openerLegAfter.benchPrice) / 10 ** cryptoSwap.priceFeedDecimals(openerLegAfter.tokenAddress),
-            cryptoSwap.description(openerLegAfter.tokenAddress),
+            uint256(openerLegAfter.benchPrice) / 10 ** priceFeeds.priceFeedDecimals(openerLegAfter.tokenAddress),
+            priceFeeds.description(openerLegAfter.tokenAddress),
             uint256(openerLegAfter.benchPrice)
         );
         CryptoSwap.Leg memory pairLegAfter = cryptoSwap.queryLeg(2);
         console2.log(
             "pairLeg benchPrice:",
-            uint256(pairLeg.benchPrice) / 10 ** cryptoSwap.priceFeedDecimals(pairLeg.tokenAddress),
-            cryptoSwap.description(pairLeg.tokenAddress),
+            uint256(pairLeg.benchPrice) / 10 ** priceFeeds.priceFeedDecimals(pairLeg.tokenAddress),
+            priceFeeds.description(pairLeg.tokenAddress),
             uint256(pairLeg.benchPrice)
         );
 
         console2.log(
             "pairLeg benchPrice:",
-            uint256(pairLegAfter.benchPrice) / 10 ** cryptoSwap.priceFeedDecimals(pairLegAfter.tokenAddress),
-            cryptoSwap.description(pairLegAfter.tokenAddress),
+            uint256(pairLegAfter.benchPrice) / 10 ** priceFeeds.priceFeedDecimals(pairLegAfter.tokenAddress),
+            priceFeeds.description(pairLegAfter.tokenAddress),
             uint256(pairLegAfter.benchPrice)
         );
 

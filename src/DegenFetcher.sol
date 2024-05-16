@@ -163,7 +163,7 @@ contract DegenFetcher {
         uint80 daysToFetch,
         uint256 dataPointsToFetchPerDay
     )
-        external
+        public
         view
         returns (int32[] memory)
     {
