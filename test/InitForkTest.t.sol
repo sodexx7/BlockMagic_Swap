@@ -8,7 +8,7 @@ import { console2 } from "forge-std/src/console2.sol";
 import { CryptoSwap } from "../src/CryptoSwap.sol";
 
 import { PriceFeeds } from "../src/PriceFeeds.sol";
-import { YieldStrategys } from "../src/YieldStrategys.sol";
+import { YieldStrategies } from "../src/YieldStrategies.sol";
 
 import "../src/test/mocks/MockV3Aggregator.sol";
 
@@ -33,7 +33,7 @@ contract InitForkTest is Test {
     ERC20 internal usdcContract;
 
     PriceFeeds internal priceFeeds;
-    YieldStrategys internal yieldStrategys;
+    YieldStrategies internal yieldStrategies;
 
     uint8[] yieldIds;
 
@@ -63,12 +63,12 @@ contract InitForkTest is Test {
         priceFeeds = new PriceFeeds(ethTokenAddress, ethPriceFeedAddress);
         priceFeeds.addPriceFeed(btcTokenAddress, btcPriceFeedAddress);
 
-        // create yieldStrategys contract
+        // create YieldStrategies contract
         yieldIds = new uint8[](1);
         yieldIds[0] = 1; // yearn
         address[] memory yieldAddress = new address[](1);
         yieldAddress[0] = yearnYvUSDC;
-        yieldStrategys = new YieldStrategys(yieldIds, yieldAddress, usdcContractAddress);
+        yieldStrategies = new YieldStrategies(yieldIds, yieldAddress, usdcContractAddress);
 
         // user can select the notional value from the following options
         uint8[] memory notionalIds = new uint8[](4);
@@ -84,7 +84,7 @@ contract InitForkTest is Test {
 
         // create cryptoSwap contract meanwhile priceFeed for ETH/USD, BTC/USD
         cryptoSwap = new CryptoSwap(
-            address(usdcContract), address(priceFeeds), address(yieldStrategys), notionalIds, notionalValues
+            address(usdcContract), address(priceFeeds), address(yieldStrategies), notionalIds, notionalValues
         );
     }
 

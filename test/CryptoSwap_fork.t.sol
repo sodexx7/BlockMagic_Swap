@@ -170,7 +170,7 @@ contract CryptoSwapTestFork is InitForkTest {
         persistantAddresses[1] = address(cryptoSwap);
         persistantAddresses[2] = usdcContractAddress;
         persistantAddresses[3] = address(priceFeeds);
-        persistantAddresses[4] = address(yieldStrategys);
+        persistantAddresses[4] = address(yieldStrategies);
 
         // // select a specific fork
         vm.makePersistent(persistantAddresses);
