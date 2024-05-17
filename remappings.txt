@@ -1,2 +1,6 @@
-@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
-forge-std/=node_modules/forge-std/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+forge-std/=lib/forge-std/
+@chainlink/contracts/=lib/chainlink-brownie-contracts/contracts/
+chainlink-brownie-contracts/=lib/chainlink-brownie-contracts/contracts/src/v0.6/vendor/@arbitrum/nitro-contracts/src/
+ds-test/=lib/ds-test/src/
+foundry-chainlink-toolkit/=lib/foundry-chainlink-toolkit/
