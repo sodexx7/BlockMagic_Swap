@@ -2,11 +2,11 @@
 
 1. profit calculation is wrong when all all legs's price are down. like leg1 -7%, leg2 -8%
 
-2. Management the ownerships for priceFeeds,YieldStrategys,CryptoSwap
+2. Management the ownerships for priceFeeds,YieldStrategies,CryptoSwap
 
 3. more cases test, such as user cancelled leg
 
-4. add breef to YieldStrategys
+4. add breef to YieldStrategies
 
 5. add query history price logic in settleSwap
 
@@ -21,6 +21,6 @@
 9. The ultimate design as below.
    1. swapFactory can create different type swap contract, now support cryptoSwap. the following support includes
       EquitySwap, ratesSwap
-   2. all SwapContract will use the features ofX priceFeeds and YieldStrategys contract.
+   2. all SwapContract will use the features ofX priceFeeds and YieldStrategies contract.
 
 <img src="ContractsDesign.png" alt="external_result" width="1000"/>

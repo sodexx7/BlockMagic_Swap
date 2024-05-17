@@ -25,7 +25,7 @@
 //     // TODO: More yield strategy info, or as ta separate contract?
 //     // TODO: when user deposit token; how to deal with yield?
 
-//     mapping(uint8 => YieldStrategy) public yieldStrategys; // 1: Aave, 2: Compound, 3: Yearn
+//     mapping(uint8 => YieldStrategy) public YieldStrategies; // 1: Aave, 2: Compound, 3: Yearn
 
 //     enum Status {
 //         Open,
@@ -92,7 +92,7 @@
 //         // require(yields.length == yieldAddress.length, "The length of the yields and yieldAddress should be
 // equal");
 //         // for(uint8 i; i < yields.length; i++) {
-//         //     yieldStrategys[yields[i]] = YieldStrategy({
+//         //     YieldStrategies[yields[i]] = YieldStrategy({
 //         //         yieldAddress: yieldAddress[i]
 //         //     });
 //         // }
@@ -341,15 +341,15 @@
 
 //     //  only contract can manage the yieldStrategs
 //     function addYieldStrategy(uint8 yieldStrategyId, address yieldAddress) external onlyOwner {
-//         require(yieldStrategys[yieldStrategyId].yieldAddress != address(0), "The yieldStrategyId already exists");
+//         require(YieldStrategies[yieldStrategyId].yieldAddress != address(0), "The yieldStrategyId already exists");
 
 //         YieldStrategy memory yieldStrategy = YieldStrategy({ yieldAddress: yieldAddress });
-//         yieldStrategys[yieldStrategyId] = yieldStrategy;
+//         YieldStrategies[yieldStrategyId] = yieldStrategy;
 //     }
 
 //     function removeYieldStrategy(uint8 yieldStrategyId) external onlyOwner {
-//         require(yieldStrategys[yieldStrategyId].yieldAddress != address(0), "The yieldStrategyId not exists");
-//         delete yieldStrategys[yieldStrategyId];
+//         require(YieldStrategies[yieldStrategyId].yieldAddress != address(0), "The yieldStrategyId not exists");
+//         delete YieldStrategies[yieldStrategyId];
 //     }
 
 //     // @notice the amount value was based on the priceFeedDecimals(8 decimals for ETH/USD,BTC/USD on arbitrum), but
