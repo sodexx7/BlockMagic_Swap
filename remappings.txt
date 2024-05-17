@@ -1,4 +1,4 @@
-@openzeppelin/contracts/=lib/openzeppelin-contracts/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 forge-std/=lib/forge-std/
 @chainlink/contracts/=lib/chainlink-brownie-contracts/contracts/
 chainlink-brownie-contracts/=lib/chainlink-brownie-contracts/contracts/src/v0.6/vendor/@arbitrum/nitro-contracts/src/
