@@ -1,4 +1,4 @@
-## todo list
+# todo list
 
 1. profit calculation is wrong when all all legs's price are down. like leg1 -7%, leg2 -8%
 
@@ -23,4 +23,4 @@
       EquitySwap, ratesSwap
    2. all SwapContract will use the features ofX priceFeeds and YieldStrategys contract.
 
-<img src="ContractsDesign.png" alt="external_result" width="1000"/>
+![external_result](ContractsDesign.png)
