@@ -16,7 +16,6 @@ contract DeployPriceFeeds is Script {
         // 0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43 BTC / USD  SEPOLIA
         // vm.envAddress("PRICE_FEED_ADDRESS");
         address ethPriceFeedAddress = address(0x694AA1769357215DE4FAC081bf1f309aDC325306);
-        
 
         // Deploy the PriceFeeds contract
         PriceFeeds priceFeeds = new PriceFeeds(ethTokenAddress, ethPriceFeedAddress);
@@ -26,7 +25,5 @@ contract DeployPriceFeeds is Script {
         console.log("PriceFeeds deployed to:", address(priceFeeds));
 
         vm.stopBroadcast();
-
-
     }
 }
