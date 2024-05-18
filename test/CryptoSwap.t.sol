@@ -556,4 +556,14 @@ contract CryptoSwapTest is Test {
         usdcContract.mint(receiver, amount);
         vm.stopPrank();
     }
+
+    // temp function, for test only in arb
+    function test_withDrawUSDC() external {
+        uint256 amount = 1000e6;
+        mintTestUSDC(address(cryptoSwap), amount);
+        uint256 cryptoSwapUsdcAmountBefore = usdcContract.balanceOf(address(cryptoSwap));
+        cryptoSwap.withDrawUSDC(amount);
+        uint256 cryptoSwapUsdcAmountAfter = usdcContract.balanceOf(address(cryptoSwap));
+        assertEq(amount, cryptoSwapUsdcAmountBefore - cryptoSwapUsdcAmountAfter);
+    }
 }

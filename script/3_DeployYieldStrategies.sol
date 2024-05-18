@@ -6,10 +6,8 @@ import "src/YieldStrategies.sol";
 
 contract DeployYieldStrategies is Script {
     function run() external {
-        
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
-
 
         // Define yield IDs and their corresponding addresses
         uint8[] memory yieldIds = new uint8[](1);
@@ -27,11 +25,7 @@ contract DeployYieldStrategies is Script {
         address settledStableToken = address(0xeA67D3A83b9Fd211410682Bc3A0De11e29748610); // mock usdc
 
         // Deploy the YieldStrategies contract
-        YieldStrategies yieldStrategies = new YieldStrategies(
-            yieldIds,
-            yieldAddresses,
-            settledStableToken
-        );
+        YieldStrategies yieldStrategies = new YieldStrategies(yieldIds, yieldAddresses, settledStableToken);
 
         // Log the address of the deployed contract
         console.log("YieldStrategies deployed to:", address(yieldStrategies));

@@ -12,8 +12,6 @@ import { console2 } from "forge-std/src/console2.sol";
  * @notice A contract that returns latest price from Chainlink Price Feeds
  */
 contract PriceFeeds is Ownable, DegenFetcher {
-    // TODO, Now directly get by price, can apply register in the future
-    // tokenAddress=>priceFeedAddress
     mapping(address => address) priceFeedAddresses;
 
     constructor(address _tokenAddress, address _priceFeed) Ownable(_msgSender()) {
@@ -42,8 +40,6 @@ contract PriceFeeds is Ownable, DegenFetcher {
         return price;
     }
 
-    // Through degenFetcher, get historypirce
-    // TODO how to config the params?
     function getHistoryPrice(address tokenAddress, uint256 timestamp) public view returns (int256) {
         int32[] memory prices =
             fetchPriceDataForFeed(priceFeedAddresses[tokenAddress], timestamp, uint80(1), uint256(2));

@@ -6,14 +6,13 @@ import "src/CryptoSwap.sol";
 
 contract DeployCryptoSwap is Script {
     function run() external {
-
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
         // Parameters for the constructor of CryptoSwap
         // address settledStableToken = vm.envAddress("SETTLED_STABLE_TOKEN");
         address settledStableToken = address(0xeA67D3A83b9Fd211410682Bc3A0De11e29748610); // mock usdc
-        
+
         // address priceFeedsAddress = vm.envAddress("PRICE_FEEDS_ADDRESS");
         address priceFeedsAddress = address(0x64D392194d45727c061684c394035CfF240480D1);
 
@@ -36,13 +35,8 @@ contract DeployCryptoSwap is Script {
         notionalValues[4] = 3000;
 
         // Deploy the contract
-        CryptoSwap cryptoSwap = new CryptoSwap(
-            settledStableToken,
-            priceFeedsAddress,
-            YieldStrategiesAddress,
-            notionalIds,
-            notionalValues
-        );
+        CryptoSwap cryptoSwap =
+            new CryptoSwap(settledStableToken, priceFeedsAddress, YieldStrategiesAddress, notionalIds, notionalValues);
 
         // Log the address of the deployed contract
         console.log("CryptoSwap deployed to:", address(cryptoSwap));
