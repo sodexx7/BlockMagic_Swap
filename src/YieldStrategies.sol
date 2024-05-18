@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { console2 } from "forge-std/src/console2.sol";
 
-contract YieldStrategys is Ownable {
+contract YieldStrategies is Ownable {
     mapping(uint8 => address) public yieldAddresses;
     address private immutable settledToken;
 
