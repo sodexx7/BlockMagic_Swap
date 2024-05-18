@@ -226,47 +226,6 @@ contract CryptoSwapTestFork is InitForkTest {
         console2.log("cryptoSwapUsdcAmountAfter", cryptoSwapUsdcAmountAfter);
     }
 
-    // function test_settlePairerWin() external {
-    //     ///  opener  ///
-    //     uint256 startDate = block.timestamp + 1 days;
-    //     uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
-    //     mintTestUSDC(swaper, swaperUsdcAmount);
-
-    //     vm.startPrank(swaper);
-    //     usdcContract.approve(address(cryptoSwap), swaperUsdcAmount);
-    //     cryptoSwap.openSwap(4, 1, ethTokenAddress, uint64(startDate));
-    //     vm.stopPrank();
-    //     ///  opener  ///
-
-    //     ///  pairer  ///
-    //     uint64 originalLegId = 1;
-    //     uint256 pairUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
-    //     mintTestUSDC(pairer, pairUsdcAmount);
-    //     uint256 pairTokenNotional = 1 * 10 ** ERC20(btcTokenAddress).decimals(); // 1 WBTC
-
-    //     vm.startPrank(pairer);
-    //     usdcContract.approve(address(cryptoSwap), pairUsdcAmount);
-    //     cryptoSwap.pairSwap(originalLegId, pairUsdcAmount, btcTokenAddress);
-    //     vm.stopPrank();
-    //     ///  pairer  ///
-
-    //     // after 30 days
-    //     vm.warp(startDate + 30 days);
-    //     // the increased price of the eth > btc
-    //     mockupdatePriceFeed("ETH/USD", 1000e8); // price doesn't change
-    //     mockupdatePriceFeed("BTC/USD", 60_300e8); // 60_000e8 => 60_300e8
-
-    //     uint256 cryptoSwapUsdcAmountBefore = usdcContract.balanceOf(address(cryptoSwap));
-    //     uint256 pairerUsdcAmountBefore = usdcContract.balanceOf(pairer);
-    //     cryptoSwap.settleSwap(1);
-    //     uint256 pairerUsdcAmountAfter = usdcContract.balanceOf(pairer);
-    //     uint256 cryptoSwapUsdcAmountAfter = usdcContract.balanceOf(address(cryptoSwap));
-
-    //     // 60_000e8 => 60_300e8, pairlegToken increased 0.005 bench amount of USDC:  10_000. profit 50USDC
-    //     assertEq(50e6, pairerUsdcAmountAfter - pairerUsdcAmountBefore);
-    //     assertEq(50e6, cryptoSwapUsdcAmountBefore - cryptoSwapUsdcAmountAfter);
-    // }
-
     // todo add fuzzy funciton based on below test
     function test_showLegsInfo() external {
         vm.selectFork(mainnetFork);
