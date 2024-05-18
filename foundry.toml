@@ -15,6 +15,7 @@ solc = "0.8.25"
 src = "src"
 test = "test"
 viaIR = true                    #TODO Temparary add, should remove
+etherscan_api_key = "PHGAQFMJYNXEY67UMC6GZ457ESS27J9UVK"
 
 [profile.ci]
 fuzz = { runs = 10_000 }
@@ -51,4 +52,8 @@ localhost = "http://localhost:8545"
 mainnet = "https://eth-mainnet.g.alchemy.com/v2/${API_KEY_ALCHEMY}"
 #  optimism = "https://optimism-mainnet.infura.io/v3/${API_KEY_INFURA}"
 #  polygon = "https://polygon-mainnet.infura.io/v3/${API_KEY_INFURA}"
-#  sepolia = "https://sepolia.infura.io/v3/${API_KEY_INFURA}"
+
+
+[profile.networks.sepolia]
+url = "https://eth-sepolia.g.alchemy.com/v2/R6WH9XpU4OiV2hUZTY8Ki1O-FPPWwY8r"
+chainId = 11155111
