@@ -325,25 +325,4 @@ contract CryptoSwapTestFork is InitTest {
             console2.log("====================================");
         }
     }
-
-    // function showLegInfo(CryptoSwap.Leg memory result) internal view {
-    //     console2.log(
-    //         "benchPrice:",
-    //         uint256(result.benchPrice) / 10 ** cryptoSwap.priceFeedDecimals(result.tokenAddress),
-    //         cryptoSwap.description(result.tokenAddress)
-    //     );
-    //     console2.log("balance:", uint256(result.balance) / 10 ** usdcContract.decimals(), usdcContract.symbol());
-    //     console2.log("pairLegId:", result.pairLegId);
-    //     console2.log("startDate:", result.startDate);
-    //     console2.log("status:", uint256(result.status));
-    //     console2.log("swaper:", result.swaper);
-    //     console2.log("tokenAddress:", result.tokenAddress, ERC20(result.tokenAddress).symbol());
-    // }
-
-    // function mintTestUSDC(address receiver, uint256 amount) internal {
-    //     // default caller: 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496, the ower of cryptoSwap,USDC
-    //     vm.startPrank(address(0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496));
-    //     usdcContract.mint(receiver, amount);
-    //     vm.stopPrank();
-    // }
 }

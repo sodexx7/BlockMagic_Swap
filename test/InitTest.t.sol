@@ -26,6 +26,7 @@ contract InitTest is Test {
     address btcPriceFeedAddress = address(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c); // BTC/USD Ethereum Mainnet
     address usdcContractAddress = address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC contract address on
         // Ethereum Mainnet
+    address yearnYvUSDC = address(0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE); // ethereum mainnet yvUSDC
     ERC20 internal usdcContract;
 
     uint8[] yieldIds = [1, 2, 3];
@@ -69,7 +70,7 @@ contract InitTest is Test {
         uint8[] memory yiedIds = new uint8[](1);
         yiedIds[0] = 1; // yearn
         address[] memory yieldAddress = new address[](1);
-        yieldAddress[0] = address(0xa354F35829Ae975e850e23e9615b11Da1B3dC4DE); // ethereum mainnet yvUSDC
+        yieldAddress[0] = yearnYvUSDC; // ethereum mainnet yvUSDC
 
         // create cryptoSwap contract meanwhile priceFeed for ETH/USD, BTC/USD
         cryptoSwap = new CryptoSwap(
