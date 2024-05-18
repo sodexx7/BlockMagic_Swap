@@ -140,11 +140,18 @@ contract CryptoSwapTestFork is InitForkTest {
         cryptoSwap.settleSwap(1);
     }
 
-    // TODO, profit calculation should consider if all decreased. current profit calculation is not correct
-    function test_settlePairerWinFork() external {
-        uint256 startDate = block.timestamp + 1 days;
-        ///  opener  ///
+    function test_settlePairerWinForkBullishMarket() external {
+        makeSettlementFromFortk(mainnetFork_15032024);
+    }
 
+    function test_settlePairerWinForkBearishMarket() external {
+        makeSettlementFromFortk(mainnetFork_02052024);
+    }
+
+    function makeSettlementFromFortk(uint256 fork) private {
+        uint256 startDate = block.timestamp + 1 days;
+
+        ///  opener  ///
         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
         deal(usdcContractAddress, swaper, swaperUsdcAmount);
 
@@ -163,21 +170,20 @@ contract CryptoSwapTestFork is InitForkTest {
         usdcContract.approve(address(cryptoSwap), pairUsdcAmount);
         cryptoSwap.pairSwap(originalLegId, pairUsdcAmount, btcTokenAddress, yieldIds[0]); // yieldId yearn
         vm.stopPrank();
-
         ///  pairer  ///
+
+        // Make persistent account
         address[] memory persistantAddresses = new address[](5);
         persistantAddresses[0] = yearnYvUSDC;
         persistantAddresses[1] = address(cryptoSwap);
         persistantAddresses[2] = usdcContractAddress;
         persistantAddresses[3] = address(priceFeeds);
-        persistantAddresses[4] = address(yieldStrategys);
+        persistantAddresses[4] = address(yieldStrategies);
 
-        // // select a specific fork
         vm.makePersistent(persistantAddresses);
 
         // select a different fork
-        vm.selectFork(mainnetFork2);
-
+        vm.selectFork(fork);
         CryptoSwap.Leg memory openerLeg = cryptoSwap.queryLeg(1);
         CryptoSwap.Leg memory pairLeg = cryptoSwap.queryLeg(2);
 
@@ -186,6 +192,31 @@ contract CryptoSwapTestFork is InitForkTest {
         uint256 pairerUsdcAmountBefore = usdcContract.balanceOf(pairer);
         console2.log("Settle the swap");
         cryptoSwap.settleSwap(1);
+        printAfterSettlement(
+            swaper,
+            pairer,
+            cryptoSwap,
+            swaperUsdcAmountBefore,
+            pairerUsdcAmountBefore,
+            cryptoSwapUsdcAmountBefore,
+            openerLeg,
+            pairLeg
+        );
+    }
+
+    function printAfterSettlement(
+        address swaper,
+        address pairer,
+        CryptoSwap cryptoSwap,
+        uint256 swaperUsdcAmountBefore,
+        uint256 pairerUsdcAmountBefore,
+        uint256 cryptoSwapUsdcAmountBefore,
+        CryptoSwap.Leg memory openerLeg,
+        CryptoSwap.Leg memory pairLeg
+    )
+        private
+        view
+    {
         console2.log("Get swaperUsdcAmountAfter");
         uint256 swaperUsdcAmountAfter = usdcContract.balanceOf(swaper);
         uint256 pairerUsdcAmountAfter = usdcContract.balanceOf(pairer);
@@ -216,12 +247,11 @@ contract CryptoSwapTestFork is InitForkTest {
         );
 
         console2.log(
-            "pairLeg benchPrice:",
+            "pairLeg latestPrice:",
             uint256(pairLegAfter.benchPrice) / 10 ** priceFeeds.priceFeedDecimals(pairLegAfter.tokenAddress),
             priceFeeds.description(pairLegAfter.tokenAddress),
             uint256(pairLegAfter.benchPrice)
         );
-
         console2.log("cryptoSwapUsdcAmountBefore", cryptoSwapUsdcAmountBefore);
         console2.log("cryptoSwapUsdcAmountAfter", cryptoSwapUsdcAmountAfter);
     }

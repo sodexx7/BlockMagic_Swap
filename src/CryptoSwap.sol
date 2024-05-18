@@ -6,13 +6,13 @@ import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/Saf
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import "./interfaces/IPriceFeeds.sol";
-import "./interfaces/IYieldStrategys.sol";
+import "./interfaces/IYieldStrategies.sol";
 
 contract CryptoSwap is Ownable {
     using SafeERC20 for IERC20;
 
     IPriceFeeds private immutable priceFeeds;
-    IYieldStrategys private immutable yieldStrategys;
+    IYieldStrategies private immutable YieldStrategies;
 
     /// @notice The balances of the users
     /// @return balances the balances of the users
@@ -107,7 +107,7 @@ contract CryptoSwap is Ownable {
         // // uint8 _period,
         address _settledStableToken,
         address priceFeedsAddress,
-        address yieldStrategysAddress,
+        address YieldStrategiesAddress,
         uint8[] memory notionalIds,
         uint256[] memory notionalValues
     )
@@ -116,7 +116,7 @@ contract CryptoSwap is Ownable {
         // // period = _period;
         settledStableToken = _settledStableToken;
         priceFeeds = IPriceFeeds(priceFeedsAddress);
-        yieldStrategys = IYieldStrategys(yieldStrategysAddress);
+        YieldStrategies = IYieldStrategies(YieldStrategiesAddress);
 
         require(
             notionalIds.length == notionalValues.length,
@@ -152,10 +152,10 @@ contract CryptoSwap is Ownable {
 
         // When transfer USDC to the contract, immediatly or when pairSwap?
         // TODO below logic should optimize, involved two approves and two transfers, should check
-        address yieldAddress = yieldStrategys.getYieldStrategy(yieldId);
+        address yieldAddress = YieldStrategies.getYieldStrategy(yieldId);
         IERC20(settledStableToken).transferFrom(msg.sender, address(this), balance);
-        IERC20(settledStableToken).approve(address(yieldStrategys), balance);
-        uint256 shares = yieldStrategys.depositYield(yieldId, balance, address(this));
+        IERC20(settledStableToken).approve(address(YieldStrategies), balance);
+        uint256 shares = YieldStrategies.depositYield(yieldId, balance, address(this));
         legIdShares[maxLegId] = shares;
 
         uint64 legId = maxLegId;
@@ -196,10 +196,10 @@ contract CryptoSwap is Ownable {
         );
 
         // TODO below logic should optimize
-        address yieldAddress = yieldStrategys.getYieldStrategy(yieldId);
+        address yieldAddress = YieldStrategies.getYieldStrategy(yieldId);
         IERC20(settledStableToken).transferFrom(msg.sender, address(this), notionalAmount);
-        IERC20(settledStableToken).approve(address(yieldStrategys), notionalAmount);
-        uint256 shares = yieldStrategys.depositYield(yieldId, notionalAmount, address(this));
+        IERC20(settledStableToken).approve(address(YieldStrategies), notionalAmount);
+        uint256 shares = YieldStrategies.depositYield(yieldId, notionalAmount, address(this));
         legIdShares[maxLegId] = shares;
 
         // TODO: benchPrice should be 0 and updated on the startDate
@@ -230,18 +230,18 @@ contract CryptoSwap is Ownable {
     /**
      * @dev The function will settle the swap, and the winner will get the profit. the profit was calculated by the
      * increased rate mulitiply the benchSettlerAmount
-     *    x`: the price of the original leg's underlying at fixingDate
      *    x : the price of the original leg's underlying at startDate
-     *    y`: the price of the pair leg's underlying at fixingDate
+     *    x`: the price of the original leg's underlying at fixingDate
      *    y : the price of the pair leg's underlying at startDate
+     *    y`: the price of the pair leg's underlying at fixingDate
      *    notionalAmount: the notional value of the two legs
      *  // // *    benchSettlerAmount: the smaller settledStableTokenAmount of the two legs
      *
      *    when x`/x > y`/y, the profit is (x`*y - x*y`) * notionalAmount / (x*y)
-     *    when y`/y > x`/x, the profit is (y`*x - y*x`) * notionalAmount / (y*x)
+     *    when y`/y > x`/x, the profit is (y`*x - y*x`) * notionalAmount / (x*y)
      *    How to get the formula:
      *    if y`/y > x`/x
-     *    (y`/y - x`/x) * notionalAmount => (y`*x - y*x`) / y*x*notionalAmount => (y`*x - y*x`) * notionalAmount / (y*x)
+     *    (y`/y - x`/x) * notionalAmount => (y`*x - y*x`) / y*x*notionalAmount => (y`*x - y*x`) * notionalAmount / (x*y)
      */
     function settleSwap(uint64 legId) external {
         // TODO more conditions check
@@ -279,7 +279,7 @@ contract CryptoSwap is Ownable {
                 ) * notionalAmount
             ) / uint256(originalLeg.benchPrice * pairLeg.benchPrice);
             winner = originalLeg.swaper;
-            console2.log("winner: opener");
+            console2.log("winner: maker");
             //TODO check update notional value, check the precious
             legs[legId].balance += int256(profit);
             legs[originalLeg.pairLegId].balance -= int256(profit);
@@ -293,7 +293,7 @@ contract CryptoSwap is Ownable {
 
             legs[legId].balance -= int256(profit);
             legs[originalLeg.pairLegId].balance += int256(profit);
-            console2.log("winner: parier");
+            console2.log("winner: taker");
             winner = pairLeg.swaper;
         }
         // console2.log("winner:", winner);
@@ -307,13 +307,13 @@ contract CryptoSwap is Ownable {
         // IERC20(settledStableToken).transfer(winner, profit);
 
         // TODO below logic should optimize
-        address yieldAddress = yieldStrategys.getYieldStrategy(legs[loserLegId].yieldId);
+        address yieldAddress = YieldStrategies.getYieldStrategy(legs[loserLegId].yieldId);
         uint256 shares = convertShareToUnderlyingAmount(loserLegId, profit);
-        IERC20(yieldAddress).transfer(address(yieldStrategys), shares);
+        IERC20(yieldAddress).transfer(address(YieldStrategies), shares);
 
         // TODO below function should check
         console2.log("expected profit", profit);
-        uint256 actualProfit = yieldStrategys.withdrawYield(legs[loserLegId].yieldId, shares, winner);
+        uint256 actualProfit = YieldStrategies.withdrawYield(legs[loserLegId].yieldId, shares, winner);
         console2.log("actual profit", actualProfit);
 
         // IERC20(settledStableToken).transfer(winner, actualProfit);
@@ -365,7 +365,7 @@ contract CryptoSwap is Ownable {
         return legs[legId];
     }
 
-    // TODO ,temp function should consider move to YieldStrategys contract. Are there problems related with applying
+    // TODO ,temp function should consider move to YieldStrategies contract. Are there problems related with applying
     // notionalAmount directly?
     // convert the share to the underlying amount
     function convertShareToUnderlyingAmount(uint64 legId, uint256 profit) internal view returns (uint256) {
