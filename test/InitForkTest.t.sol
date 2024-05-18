@@ -19,6 +19,9 @@ contract InitForkTest is Test {
     // the identifiers of the forks
     uint256 mainnetFork;
     uint256 mainnetFork2;
+    uint256 mainnetFork_15032024;
+    uint256 mainnetFork_02052024;
+    uint256 mainnetFork_20032024;
 
     CryptoSwap internal cryptoSwap;
     address internal ethTokenAddress = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH Ethereum Mainnet
@@ -47,13 +50,25 @@ contract InitForkTest is Test {
         uint256 startDate
     );
 
-    /// @dev A function invoked before each test case is run.
     /**
      * Initial price for ETH/USD: 1000, BTC/USD: 60_000, whose decimals are 8
      */
     function setUp() public virtual {
-        mainnetFork = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_505_400 }); // before 30 days
+        // 20/03/2024 BTC: ~61_930 USD, ETH: ~3_158 USD
+        mainnetFork = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_475_400 });
+
+        // 24/04/2024 - BTC: ~65_548 USD, ETH: ~3_393 USD
+        // mainnetFork = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_505_400 }); // before 30 days
+
+        // 14/05/2024 - BTC: ~62_619 USD, ETH: ~2_947 USD
         mainnetFork2 = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_865_400 }); // around today
+
+        // 15/03/2024 BTC: ~71_387 USD, ETH: ~3_888 USD
+        mainnetFork_15032024 = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_440_948 });
+
+        // 02/05/2024 - BTC: ~58_253 USD, ETH: ~2_969 USD
+        mainnetFork_02052024 = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_785_026 });
+
         vm.selectFork(mainnetFork);
         usdcContract = ERC20(usdcContractAddress);
 

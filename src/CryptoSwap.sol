@@ -230,18 +230,18 @@ contract CryptoSwap is Ownable {
     /**
      * @dev The function will settle the swap, and the winner will get the profit. the profit was calculated by the
      * increased rate mulitiply the benchSettlerAmount
-     *    x`: the price of the original leg's underlying at fixingDate
      *    x : the price of the original leg's underlying at startDate
-     *    y`: the price of the pair leg's underlying at fixingDate
+     *    x`: the price of the original leg's underlying at fixingDate
      *    y : the price of the pair leg's underlying at startDate
+     *    y`: the price of the pair leg's underlying at fixingDate
      *    notionalAmount: the notional value of the two legs
      *  // // *    benchSettlerAmount: the smaller settledStableTokenAmount of the two legs
      *
      *    when x`/x > y`/y, the profit is (x`*y - x*y`) * notionalAmount / (x*y)
-     *    when y`/y > x`/x, the profit is (y`*x - y*x`) * notionalAmount / (y*x)
+     *    when y`/y > x`/x, the profit is (y`*x - y*x`) * notionalAmount / (x*y)
      *    How to get the formula:
      *    if y`/y > x`/x
-     *    (y`/y - x`/x) * notionalAmount => (y`*x - y*x`) / y*x*notionalAmount => (y`*x - y*x`) * notionalAmount / (y*x)
+     *    (y`/y - x`/x) * notionalAmount => (y`*x - y*x`) / y*x*notionalAmount => (y`*x - y*x`) * notionalAmount / (x*y)
      */
     function settleSwap(uint64 legId) external {
         // TODO more conditions check
@@ -279,7 +279,7 @@ contract CryptoSwap is Ownable {
                 ) * notionalAmount
             ) / uint256(originalLeg.benchPrice * pairLeg.benchPrice);
             winner = originalLeg.swaper;
-            console2.log("winner: opener");
+            console2.log("winner: maker");
             //TODO check update notional value, check the precious
             legs[legId].balance += int256(profit);
             legs[originalLeg.pairLegId].balance -= int256(profit);
@@ -293,7 +293,7 @@ contract CryptoSwap is Ownable {
 
             legs[legId].balance -= int256(profit);
             legs[originalLeg.pairLegId].balance += int256(profit);
-            console2.log("winner: parier");
+            console2.log("winner: taker");
             winner = pairLeg.swaper;
         }
         // console2.log("winner:", winner);

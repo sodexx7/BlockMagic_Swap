@@ -140,11 +140,18 @@ contract CryptoSwapTestFork is InitForkTest {
         cryptoSwap.settleSwap(1);
     }
 
-    // TODO, profit calculation should consider if all decreased. current profit calculation is not correct
-    function test_settlePairerWinFork() external {
-        uint256 startDate = block.timestamp + 1 days;
-        ///  opener  ///
+    function test_settlePairerWinForkBullishMarket() external {
+        makeSettlementFromFortk(mainnetFork_15032024);
+    }
 
+    function test_settlePairerWinForkBearishMarket() external {
+        makeSettlementFromFortk(mainnetFork_02052024);
+    }
+
+    function makeSettlementFromFortk(uint256 fork) private {
+        uint256 startDate = block.timestamp + 1 days;
+
+        ///  opener  ///
         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
         deal(usdcContractAddress, swaper, swaperUsdcAmount);
 
@@ -163,8 +170,9 @@ contract CryptoSwapTestFork is InitForkTest {
         usdcContract.approve(address(cryptoSwap), pairUsdcAmount);
         cryptoSwap.pairSwap(originalLegId, pairUsdcAmount, btcTokenAddress, yieldIds[0]); // yieldId yearn
         vm.stopPrank();
-
         ///  pairer  ///
+
+        // Make persistent account
         address[] memory persistantAddresses = new address[](5);
         persistantAddresses[0] = yearnYvUSDC;
         persistantAddresses[1] = address(cryptoSwap);
@@ -172,12 +180,10 @@ contract CryptoSwapTestFork is InitForkTest {
         persistantAddresses[3] = address(priceFeeds);
         persistantAddresses[4] = address(yieldStrategies);
 
-        // // select a specific fork
         vm.makePersistent(persistantAddresses);
 
         // select a different fork
-        vm.selectFork(mainnetFork2);
-
+        vm.selectFork(fork);
         CryptoSwap.Leg memory openerLeg = cryptoSwap.queryLeg(1);
         CryptoSwap.Leg memory pairLeg = cryptoSwap.queryLeg(2);
 
@@ -186,6 +192,31 @@ contract CryptoSwapTestFork is InitForkTest {
         uint256 pairerUsdcAmountBefore = usdcContract.balanceOf(pairer);
         console2.log("Settle the swap");
         cryptoSwap.settleSwap(1);
+        printAfterSettlement(
+            swaper,
+            pairer,
+            cryptoSwap,
+            swaperUsdcAmountBefore,
+            pairerUsdcAmountBefore,
+            cryptoSwapUsdcAmountBefore,
+            openerLeg,
+            pairLeg
+        );
+    }
+
+    function printAfterSettlement(
+        address swaper,
+        address pairer,
+        CryptoSwap cryptoSwap,
+        uint256 swaperUsdcAmountBefore,
+        uint256 pairerUsdcAmountBefore,
+        uint256 cryptoSwapUsdcAmountBefore,
+        CryptoSwap.Leg memory openerLeg,
+        CryptoSwap.Leg memory pairLeg
+    )
+        private
+        view
+    {
         console2.log("Get swaperUsdcAmountAfter");
         uint256 swaperUsdcAmountAfter = usdcContract.balanceOf(swaper);
         uint256 pairerUsdcAmountAfter = usdcContract.balanceOf(pairer);
@@ -216,56 +247,14 @@ contract CryptoSwapTestFork is InitForkTest {
         );
 
         console2.log(
-            "pairLeg benchPrice:",
+            "pairLeg latestPrice:",
             uint256(pairLegAfter.benchPrice) / 10 ** priceFeeds.priceFeedDecimals(pairLegAfter.tokenAddress),
             priceFeeds.description(pairLegAfter.tokenAddress),
             uint256(pairLegAfter.benchPrice)
         );
-
         console2.log("cryptoSwapUsdcAmountBefore", cryptoSwapUsdcAmountBefore);
         console2.log("cryptoSwapUsdcAmountAfter", cryptoSwapUsdcAmountAfter);
     }
-
-    // function test_settlePairerWin() external {
-    //     ///  opener  ///
-    //     uint256 startDate = block.timestamp + 1 days;
-    //     uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
-    //     mintTestUSDC(swaper, swaperUsdcAmount);
-
-    //     vm.startPrank(swaper);
-    //     usdcContract.approve(address(cryptoSwap), swaperUsdcAmount);
-    //     cryptoSwap.openSwap(4, 1, ethTokenAddress, uint64(startDate));
-    //     vm.stopPrank();
-    //     ///  opener  ///
-
-    //     ///  pairer  ///
-    //     uint64 originalLegId = 1;
-    //     uint256 pairUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
-    //     mintTestUSDC(pairer, pairUsdcAmount);
-    //     uint256 pairTokenNotional = 1 * 10 ** ERC20(btcTokenAddress).decimals(); // 1 WBTC
-
-    //     vm.startPrank(pairer);
-    //     usdcContract.approve(address(cryptoSwap), pairUsdcAmount);
-    //     cryptoSwap.pairSwap(originalLegId, pairUsdcAmount, btcTokenAddress);
-    //     vm.stopPrank();
-    //     ///  pairer  ///
-
-    //     // after 30 days
-    //     vm.warp(startDate + 30 days);
-    //     // the increased price of the eth > btc
-    //     mockupdatePriceFeed("ETH/USD", 1000e8); // price doesn't change
-    //     mockupdatePriceFeed("BTC/USD", 60_300e8); // 60_000e8 => 60_300e8
-
-    //     uint256 cryptoSwapUsdcAmountBefore = usdcContract.balanceOf(address(cryptoSwap));
-    //     uint256 pairerUsdcAmountBefore = usdcContract.balanceOf(pairer);
-    //     cryptoSwap.settleSwap(1);
-    //     uint256 pairerUsdcAmountAfter = usdcContract.balanceOf(pairer);
-    //     uint256 cryptoSwapUsdcAmountAfter = usdcContract.balanceOf(address(cryptoSwap));
-
-    //     // 60_000e8 => 60_300e8, pairlegToken increased 0.005 bench amount of USDC:  10_000. profit 50USDC
-    //     assertEq(50e6, pairerUsdcAmountAfter - pairerUsdcAmountBefore);
-    //     assertEq(50e6, cryptoSwapUsdcAmountBefore - cryptoSwapUsdcAmountAfter);
-    // }
 
     // todo add fuzzy funciton based on below test
     function test_showLegsInfo() external {

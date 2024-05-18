@@ -1,6 +1,8 @@
 # todo list
 
-1. profit calculation is wrong when all all legs's price are down. like leg1 -7%, leg2 -8%
+1. ~~profit calculation is wrong when all legs's price are down. like leg1 -7%, leg2 -8%~~  
+   - Bear and bull market test added
+   - Profit calculation seems correct after test
 
 2. Management the ownerships for priceFeeds,YieldStrategys,CryptoSwap
 
