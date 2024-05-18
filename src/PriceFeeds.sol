@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.25;
 
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./DegenFetcher.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV2V3Interface.sol";
+
 import { console2 } from "forge-std/src/console2.sol";
 
 /**
  * @title The PriceFeeds contract
  * @notice A contract that returns latest price from Chainlink Price Feeds
  */
-abstract contract PriceFeeds is Ownable {
+contract PriceFeeds is Ownable, DegenFetcher {
     // TODO, Now directly get by price, can apply register in the future
     // tokenAddress=>priceFeedAddress
     mapping(address => address) priceFeedAddresses;
 
-    constructor(address _tokenAddress, address _priceFeed) {
+    constructor(address _tokenAddress, address _priceFeed) Ownable(_msgSender()) {
         priceFeedAddresses[_tokenAddress] = _priceFeed;
     }
 
@@ -38,6 +40,14 @@ abstract contract PriceFeeds is Ownable {
         ) = AggregatorV3Interface(priceFeedAddresses[tokenAddress]).latestRoundData();
 
         return price;
+    }
+
+    // Through degenFetcher, get historypirce
+    // TODO how to config the params?
+    function getHistoryPrice(address tokenAddress, uint256 timestamp) public view returns (int256) {
+        int32[] memory prices =
+            fetchPriceDataForFeed(priceFeedAddresses[tokenAddress], timestamp, uint80(1), uint256(2));
+        return prices[0];
     }
 
     /**

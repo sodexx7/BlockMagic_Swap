@@ -2,6 +2,10 @@
 
 - [Original README](ORIGINAL_README.md)
 
+# Panda Finance
+
+- [Panda Finance draft](PandaFinance.md)
+
 # Quick Start
 
 1. bun install

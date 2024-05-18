@@ -5,12 +5,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { console2 } from "forge-std/src/console2.sol";
-import "./PriceFeeds.sol";
-import "./YieldStrategys.sol";
-import "./DegenFetcher.sol";
+import "./interfaces/IPriceFeeds.sol";
+import "./interfaces/IYieldStrategys.sol";
 
-contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
+contract CryptoSwap is Ownable {
     using SafeERC20 for IERC20;
+
+    IPriceFeeds private immutable priceFeeds;
+    IYieldStrategys private immutable yieldStrategys;
 
     /// @notice The balances of the users
     /// @return balances the balances of the users
@@ -23,15 +25,9 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
     mapping(uint8 => uint256) public notionalValueOptions; // notion value options, 1: 100, 2: 1000, 3: 3000 owner can
         // modified
 
-    /// @notice Address of the yield strategy
-    /// @return yieldAddress the address of the yield strategy
-    struct YieldStrategy {
-        address yieldAddress;
-    }
-    // TODO: More yield strategy info, or as ta separate contract?
     // TODO: when user deposit token; how to deal with yield?
-
-    mapping(uint8 => YieldStrategy) public yieldStrategys; // 1: Aave, 2: Compound, 3: Yearn
+    // TODO: maintian the yield info for each leg
+    mapping(uint64 => uint256) public legIdShares;
 
     enum Status {
         Open,
@@ -110,19 +106,18 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
     constructor(
         // // uint8 _period,
         address _settledStableToken,
-        address _tokenAddress,
-        address _priceFeed,
+        address priceFeedsAddress,
+        address yieldStrategysAddress,
         uint8[] memory notionalIds,
-        uint256[] memory notionalValues,
-        uint8[] memory yieldIds,
-        address[] memory yieldAddress
+        uint256[] memory notionalValues
     )
         Ownable(msg.sender)
-        PriceFeeds(_tokenAddress, _priceFeed)
-        YieldStrategys(yieldIds, yieldAddress)
     {
         // // period = _period;
         settledStableToken = _settledStableToken;
+        priceFeeds = IPriceFeeds(priceFeedsAddress);
+        yieldStrategys = IYieldStrategys(yieldStrategysAddress);
+
         require(
             notionalIds.length == notionalValues.length,
             "The length of the notionalIds and notionalValues should be equal"
@@ -156,10 +151,11 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
         );
 
         // When transfer USDC to the contract, immediatly or when pairSwap?
-        // TODO below logic should optimize
+        // TODO below logic should optimize, involved two approves and two transfers, should check
+        address yieldAddress = yieldStrategys.getYieldStrategy(yieldId);
         IERC20(settledStableToken).transferFrom(msg.sender, address(this), balance);
-        IERC20(settledStableToken).approve(yieldStrategies[yieldId], balance);
-        uint256 shares = depositYield(yieldId, balance, address(this));
+        IERC20(settledStableToken).approve(address(yieldStrategys), balance);
+        uint256 shares = yieldStrategys.depositYield(yieldId, balance, address(this));
         legIdShares[maxLegId] = shares;
 
         uint64 legId = maxLegId;
@@ -200,13 +196,14 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
         );
 
         // TODO below logic should optimize
+        address yieldAddress = yieldStrategys.getYieldStrategy(yieldId);
         IERC20(settledStableToken).transferFrom(msg.sender, address(this), notionalAmount);
-        IERC20(settledStableToken).approve(yieldStrategies[yieldId], notionalAmount);
-        uint256 shares = depositYield(yieldId, notionalAmount, address(this));
+        IERC20(settledStableToken).approve(address(yieldStrategys), notionalAmount);
+        uint256 shares = yieldStrategys.depositYield(yieldId, notionalAmount, address(this));
         legIdShares[maxLegId] = shares;
 
         // TODO: benchPrice should be 0 and updated on the startDate
-        int256 pairLegTokenLatestPrice = getLatestPrice(pairToken);
+        int256 pairLegTokenLatestPrice = priceFeeds.getLatestPrice(pairToken);
 
         uint64 pairLegId = _createLeg(
             pairToken,
@@ -222,7 +219,7 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
         legs[originalLegId].pairLegId = pairLegId;
         legs[originalLegId].status = Status.Active;
 
-        int256 originalLegPrice = getLatestPrice(originalLeg.tokenAddress);
+        int256 originalLegPrice = priceFeeds.getLatestPrice(originalLeg.tokenAddress);
         legs[originalLegId].benchPrice = originalLegPrice;
 
         emit PairSwap(originalLegId, pairLegId, msg.sender);
@@ -262,8 +259,8 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
         uint256 notionalAmount = originalLeg.notionalAmount;
 
         // TODO precious and arithmetic calculation check, security check
-        int256 originalLegTokenLatestPrice = getLatestPrice(originalLeg.tokenAddress);
-        int256 pairLegTokenLatestPrice = getLatestPrice(pairLeg.tokenAddress);
+        int256 originalLegTokenLatestPrice = priceFeeds.getLatestPrice(originalLeg.tokenAddress);
+        int256 pairLegTokenLatestPrice = priceFeeds.getLatestPrice(pairLeg.tokenAddress);
 
         // compare the price change for the two legs
         address winner;
@@ -308,12 +305,18 @@ contract CryptoSwap is Ownable, PriceFeeds, YieldStrategys, DegenFetcher {
         legs[originalLeg.pairLegId].benchPrice = pairLegTokenLatestPrice;
 
         // IERC20(settledStableToken).transfer(winner, profit);
+
+        // TODO below logic should optimize
+        address yieldAddress = yieldStrategys.getYieldStrategy(legs[loserLegId].yieldId);
+        uint256 shares = convertShareToUnderlyingAmount(loserLegId, profit);
+        IERC20(yieldAddress).transfer(address(yieldStrategys), shares);
+
         // TODO below function should check
         console2.log("expected profit", profit);
-        uint256 actualProfit =
-            withdrawYield(legs[loserLegId].yieldId, convertShareToUnderlyingAmount(loserLegId, profit), address(this));
+        uint256 actualProfit = yieldStrategys.withdrawYield(legs[loserLegId].yieldId, shares, winner);
         console2.log("actual profit", actualProfit);
-        IERC20(settledStableToken).transfer(winner, actualProfit);
+
+        // IERC20(settledStableToken).transfer(winner, actualProfit);
 
         // when end, the status of the two legs should be settled
         legs[legId].status = Status.Settled;

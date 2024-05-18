@@ -125,6 +125,5 @@ focusing on Price Return Swap.
   - To avoid arbitrage !!!
 - Problem if we use ratio to sanction people with less money
   - Need to check for arbitrage opportunity (Opening a lot of contract)
-- We should do Long GOOGLE VS Short Google i/o GOOGLE VS AMAZON
-V2 - V3
+- We should do Long GOOGLE VS Short Google i/o GOOGLE VS AMAZON V2 - V3
 - Fix rate VS Google => Aave/Defi Rate Vs Google perfomance
