@@ -5,13 +5,16 @@ import { Test } from "forge-std/src/Test.sol";
 // import "forge-std/src/StdUtils.sol";
 
 import { console2 } from "forge-std/src/console2.sol";
-import { DegenFetcher } from "../src/DegenFetcher.sol";
+import { DegenFetcherV2 } from "../src/DegenFetcherV2.sol";
 
 contract DegenFetcherTest is Test {
     // the identifiers of the forks
-    uint256 mainnetFork;
+    uint256 mainnetFork_60_983;
+    uint256 mainnetFork_61_491;
+    uint256 mainnetFork_15032024;
+    uint256 mainnetFork_02052024;
 
-    DegenFetcher internal degenFetcher;
+    DegenFetcherV2 internal degenFetcherV2;
     address internal ethTokenAddress = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH Ethereum Mainnet
     address internal btcTokenAddress = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599); // WBTC Ethereum Mainnet
     address internal swaper = address(0x991);
@@ -25,19 +28,87 @@ contract DegenFetcherTest is Test {
      * Initial price for ETH/USD: 1000, BTC/USD: 60_000, whose decimals are 8
      */
     function setUp() public virtual {
-        mainnetFork = vm.createFork({ urlOrAlias: "mainnet" });
-        vm.selectFork(mainnetFork);
+        mainnetFork_60_983 = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_902_982 });
 
-        degenFetcher = new DegenFetcher();
+        mainnetFork_61_491 = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_902_798 });
+
+        // 15/03/2024 BTC: ~71_387 USD, ETH: ~3_888 USD
+        mainnetFork_15032024 = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_440_948 });
+
+        // 02/05/2024 - BTC: ~58_253 USD, ETH: ~2_969 USD
+        mainnetFork_02052024 = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_785_026 });
     }
 
-    //TODO two different prices(61_491 60983) for BTC/USD queryed in 20240415 and 20240416
+    //TODO two different prices(61_491 60_983) for BTC/USD queryed in 20240415 and 20240416
     // 61_491 (20240418 10:45)
-    function test_getHistoricalPrice() external {
-        int32[] memory prices = degenFetcher.fetchPriceDataForFeed(
-            address(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c), 1_715_499_660, uint80(1), uint256(2)
-        );
-        console2.log("prices", prices[0]);
+    function test_getHistoricalPriceSame_60_983() external {
+        vm.selectFork(mainnetFork_60_983);
+        degenFetcherV2 = new DegenFetcherV2();
+
+        int32 price =
+            degenFetcherV2.fetchPriceDataForFeed(address(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c), 1_715_499_660);
+
+        console2.log("price: ", price);
         // assertEq(prices[0], 61_491);
+        // assertEq(prices[0], 60_983);
+    }
+
+    function test_getHistoricalPriceSame_61_491() external {
+        vm.selectFork(mainnetFork_61_491);
+        degenFetcherV2 = new DegenFetcherV2();
+
+        int32 price =
+            degenFetcherV2.fetchPriceDataForFeed(address(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c), 1_715_499_660);
+        // 1715502600
+
+        console2.log("price: ", price);
+        // assertEq(prices[0], 61_491);
+        // assertEq(prices[0], 60_983);
+    }
+
+    function test_getHistoricalPriceSame1715532900_60_983() external {
+        vm.selectFork(mainnetFork_60_983);
+        degenFetcherV2 = new DegenFetcherV2();
+
+        int32 price =
+            degenFetcherV2.fetchPriceDataForFeed(address(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c), 1_715_532_900);
+
+        console2.log("price: ", price);
+        // assertEq(prices[0], 61_491);
+        // assertEq(prices[0], 60_983);
+    }
+
+    function test_getHistoricalPriceSame1715532900_61_491() external {
+        vm.selectFork(mainnetFork_61_491);
+        degenFetcherV2 = new DegenFetcherV2();
+
+        int32 price =
+            degenFetcherV2.fetchPriceDataForFeed(address(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c), 1_715_532_900);
+
+        console2.log("price: ", price);
+        // assertEq(prices[0], 61_491);
+        // assertEq(prices[0], 60_983);
+    }
+
+    function test_getHistoricalPrice15032024() external {
+        vm.selectFork(mainnetFork_15032024);
+        degenFetcherV2 = new DegenFetcherV2();
+
+        int32 price =
+            degenFetcherV2.fetchPriceDataForFeed(address(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c), 1_704_067_200);
+
+        console2.log("price: ", price);
+        // assertEq(prices[0], 42_651);
+    }
+
+    function test_getHistoricalPrice_02052024() external {
+        vm.selectFork(mainnetFork_02052024);
+        degenFetcherV2 = new DegenFetcherV2();
+
+        int32 price =
+            degenFetcherV2.fetchPriceDataForFeed(address(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c), 1_704_067_200);
+
+        console2.log("price: ", price);
+        // assertEq(prices[0], 42_651);
     }
 }
