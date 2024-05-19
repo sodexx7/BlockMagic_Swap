@@ -11,7 +11,7 @@ import { console2 } from "forge-std/src/console2.sol";
  * @title The PriceFeeds contract
  * @notice A contract that returns latest price from Chainlink Price Feeds
  */
-contract PriceFeeds is Ownable, DegenFetcher {
+contract PriceFeedManager is Ownable, DegenFetcher {
     // TODO, Now directly get by price, can apply register in the future
     // tokenAddress=>priceFeedAddress
     mapping(address => address) priceFeedAddresses;

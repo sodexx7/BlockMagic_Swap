@@ -5,40 +5,36 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { console2 } from "forge-std/src/console2.sol";
-import "./interfaces/IPriceFeeds.sol";
+import "./interfaces/IPriceFeedManager.sol";
 import "./interfaces/IYieldStrategies.sol";
 
 contract CryptoSwap is Ownable {
     using SafeERC20 for IERC20;
 
-    IPriceFeeds private immutable priceFeeds;
-    IYieldStrategies private immutable YieldStrategies;
+    IPriceFeedManager private immutable priceFeedManager;
+    IYieldStrategyManager private immutable yieldStrategyManager;
+    mapping(uint8 => address) public settlementTokenAddresses;
+    
+    uint256 contractMasterId = 0;   // The master id of each swapContract
+    mapping(uint256 => uint256) public contractCreationCount;   // How many of each contractMasterId have been created
 
-    /// @notice The balances of the users
-    /// @return balances the balances of the users
-    mapping(address => uint256) public balances;
+    // Status of each contract at masterId => contractId
+    // masterId => contractId => SwapContract
+    mapping(uint256 => mapping(uint256 => SwapContract)) public swapContracts;
 
-    // // uint8 public period; // as the global period time or can be set per swap by user?
-    uint64 public maxLegId = 1; // maxLegId's init value is 1
-    address private immutable settledStableToken; // users should deposit the stable coin to the contract when openSwap
-        // or pairSwap TODO  only support one stableCoin?
-    mapping(uint8 => uint256) public notionalValueOptions; // notion value options, 1: 100, 2: 1000, 3: 3000 owner can
-        // modified
-
-    // TODO: when user deposit token; how to deal with yield?
-    // TODO: maintian the yield info for each leg
-    mapping(uint64 => uint256) public legIdShares;
+    // Balances of each leg in each contractId at masterId
+    // masterId => contractId => leg => balance
+    mapping(uint256 => mapping(uint256 => mapping(bool => uint256))) public balances; 
 
     enum Status {
         Open,
         Active,
         Settled,
         Cancelled // User cancelled the order or no taker
-
     }
 
-    // TODO: Period should be set by the user
-    enum periodType {
+    enum PeriodType {
+        Daily,
         Weekly,
         Monthly,
         Quarterly,
@@ -57,172 +53,117 @@ contract CryptoSwap is Ownable {
      * @param pairLegId The pair leg id
      * @param status The status of the swap
      */
-    struct Leg {
-        address swaper;
-        address tokenAddress;
-        uint256 notionalAmount;
-        // uint256 settledStableTokenAmount;
+
+    struct SwapContract {
+        uint256 contractMasterId;
+        uint256 contractId;
+        address userA;
+        address userB;
+        Period period;
+        Leg legA;
+        Leg legB;
+        uint16 periodIntervals;
+        uint8 settlementTokenId
         uint8 yieldId;
-        int256 balance;
-        int256 benchPrice;
-        uint64 startDate;
-        /// @dev 0: not taken (open status), pairLegId>1: taken (active status)
-        uint64 pairLegId;
+        uint256 notionalAmount;
+        uint256 yieldShares;
         Status status;
     }
 
-    /// @notice The legs
-    /// @dev legId,
-    /// @notice get legInfo by querying the legId, get all legs info by combing maxLegId
-    /// @notice if want to used by external service, like chainlink, can use the legId
-    mapping(uint256 => Leg) public legs;
+    struct Leg {
+        bool legPosition; // true for legA, false for legB
+        uint64 feedId;
+        int256 balance;
+        int256 benchPrice;
+    }
 
-    event OpenSwap(
-        uint64 indexed legId,
-        address indexed swaper,
-        address indexed tokenAddress,
-        uint256 amountOfSettleToken,
-        uint256 startDate
-    );
-    event BatchOpenSwap(
-        address indexed swaper,
-        address indexed tokenAddress,
-        uint64[] legIds,
-        uint256 totoalAmountOfSettleToken,
-        uint8 notionalCount,
-        uint256 startDate
-    );
-    // TODO check PairSwap
-    event PairSwap(uint256 indexed originalLegId, uint256 indexed pairlegId, address pairer);
-    // TODO more PairSwap event cases
-    event SettleSwap(uint256 indexed legId, address indexed winner, address payToken, uint256 profit);
-    event NoProfitWhileSettle(uint256 indexed legId, address indexed swaper, address indexed pairer);
+    struct Period{
+        uint64 startDate;
+        uint16 periodIntervals;
+        PeriodType periodType;
+    }
 
-    // event, who win the swap, how much profit
-    // event, the latest notional of the swaper and pairer after the settleSwap
-
-    // init the contract with the period and the yield strategy
-    // TODO check Ownable(msg.sender)
     constructor(
-        // // uint8 _period,
-        address _settledStableToken,
-        address priceFeedsAddress,
-        address YieldStrategiesAddress,
-        uint8[] memory notionalIds,
-        uint256[] memory notionalValues
+        address _priceFeedManager,
+        address _yieldStrategyManager
     )
         Ownable(msg.sender)
     {
-        // // period = _period;
-        settledStableToken = _settledStableToken;
-        priceFeeds = IPriceFeeds(priceFeedsAddress);
-        YieldStrategies = IYieldStrategies(YieldStrategiesAddress);
-
-        require(
-            notionalIds.length == notionalValues.length,
-            "The length of the notionalIds and notionalValues should be equal"
-        );
-        for (uint8 i; i < notionalIds.length; i++) {
-            notionalValueOptions[notionalIds[i]] = notionalValues[i];
-        }
+        priceFeedManager = IPriceFeedManager(priceFeedsManager);
+        yieldStrategyManager = IYieldStrategyManager(yieldStrategyManager);
     }
 
-    // TODO: When open the swap, should grant the contract can use the legToken along with the notional
-    // TODO: more conditions check, such as user should have enough token to open the swap
-    // TODO: For the legToken, should supply options for user's selection. (NOW, BTC, ETH, USDC)
-    // TODO: TYPE? Deposited stable coin or directly apply legToken.(Now only support Deposited stable coin)
-    // TODO: Maybe need to use wETH instead of ETH directly to apply yield
     function openSwap(
-        uint8 notionalId,
-        uint8 notionalCount,
-        address legToken,
-        uint64 startDate,
-        uint8 yieldId
+        uint256 _contractCreationCount,
+        uint256 _notionalAmount,
+        Period _period,
+        uint8 _settlementTokenId,
+        uint8 _feedIdA,
+        uint8 _feedIdB,
+        uint8 _yieldId
     )
         external
     {
-        require(notionalId >= 1, "The notionalId should be greater than 0");
-        require(startDate > block.timestamp, "startDate should be greater than now"); // TODO change to custom error
+        require(_period.startDate >= block.timestamp, "startDate >= block.timestamp");
+        require(_notionalAmount % 10 == 0, "The notional amount must be a multiple of 10");
 
-        uint256 balance = notionalValueOptions[notionalId] * notionalCount;
-        require(
-            IERC20(settledStableToken).allowance(msg.sender, address(this)) >= balance,
-            "The user should have grant enough settleStable token to open the swap"
-        );
+        IERC20(settlementTokenAddresses[_settlementTokenId]).transferFrom(msg.sender, address(this), (_contractCreationCount * _notionalAmount) / 2);
 
-        // When transfer USDC to the contract, immediatly or when pairSwap?
-        // TODO below logic should optimize, involved two approves and two transfers, should check
-        address yieldAddress = YieldStrategies.getYieldStrategy(yieldId);
-        IERC20(settledStableToken).transferFrom(msg.sender, address(this), balance);
-        IERC20(settledStableToken).approve(address(YieldStrategies), balance);
-        uint256 shares = YieldStrategies.depositYield(yieldId, balance, address(this));
-        legIdShares[maxLegId] = shares;
-
-        uint64 legId = maxLegId;
-        for (uint256 i; i < notionalCount; i++) {
-            _createLeg(
-                legToken,
-                notionalValueOptions[notionalId],
-                int256(notionalValueOptions[notionalId]),
-                Status.Open,
-                startDate,
-                0,
-                0,
-                yieldId
-            );
+        uint256 shares;
+        if (_yieldId != 0) {
+            address yieldAddress = yieldStrategyManager.getYieldStrategy(_yieldId);
+            shares = yieldAddress.depositYield(_yieldId, (_contractCreationCount * _notionalAmount) / 2, address(this));
         }
-        if (notionalCount == 1) {
-            emit OpenSwap(legId, msg.sender, legToken, balance, startDate);
-        } else {
-            uint64[] memory legIds = new uint64[](notionalCount);
-            for (uint256 i; i < notionalCount; i++) {
-                legIds[i] = uint64(legId++);
-            }
-            emit BatchOpenSwap(msg.sender, legToken, legIds, balance, notionalCount, startDate);
+
+        (Leg memory legA, Leg memory legB) = handleLegs(_feedIdA, _feedIdB);
+
+        for(uint256 i = 0; i < _contractCreationCount; i++) {
+            SwapContract memory swapContract = SwapContract({
+                contractMasterId: contractMasterId,
+                contractId: i,
+                period: _period,
+                userA: msg.sender,
+                userB: address(0),
+                legA: legA,
+                legB: legB,
+                settlementTokenId: _settlementTokenId,
+                yieldId: _yieldId,
+                notionalAmount: _notionalAmount,
+                yieldShares: shares,
+                status: Status.Open,
+
+            });
+
+            swapContracts[contractMasterId][i][true] = swapContract;
         }
+
+        contractCreationCount[contractMasterId] = _contractCreationCount;
+        contractMasterId++;
     }
 
-    function pairSwap(uint64 originalLegId, uint256 notionalAmount, address pairToken, uint8 yieldId) external {
-        require(notionalAmount == legs[originalLegId].notionalAmount, "Notional amount should pair the leg Value");
+    function pairSwap(uint256 _swapContractMasterId, uint256 _swapContractId) external {
+        SwapContract storage swapContract = swapContracts[_swapContractMasterId][_swapContractId];
+        require(swapContract.status == Status.Open, "The swapContract is not open");
 
-        Leg memory originalLeg = legs[originalLegId];
-        require(originalLeg.status == Status.Open, "The leg is not open");
-        require(originalLeg.startDate > block.timestamp, "The leg is expired");
+        swapContract.userB = msg.sender;
 
-        // Transfer the settledStableToken to the contract
-        require(
-            IERC20(settledStableToken).balanceOf(msg.sender) >= notionalAmount,
-            "The user should have enough token to pair the swap"
-        );
+        int256 legALatestPrice = priceFeeds.getLatestPrice(swapContract.legA.feedId);
+        int256 legBLatestPrice = priceFeeds.getLatestPrice(swapContract.legB.feedId);
 
-        // TODO below logic should optimize
-        address yieldAddress = YieldStrategies.getYieldStrategy(yieldId);
-        IERC20(settledStableToken).transferFrom(msg.sender, address(this), notionalAmount);
-        IERC20(settledStableToken).approve(address(YieldStrategies), notionalAmount);
-        uint256 shares = YieldStrategies.depositYield(yieldId, notionalAmount, address(this));
-        legIdShares[maxLegId] = shares;
+        swapContract.legA.benchPrice = legALatestPrice;
+        swapContract.legB.benchPrice = legBLatestPrice;
 
-        // TODO: benchPrice should be 0 and updated on the startDate
-        int256 pairLegTokenLatestPrice = priceFeeds.getLatestPrice(pairToken);
+        swapContract.status = Status.Active;
 
-        uint64 pairLegId = _createLeg(
-            pairToken,
-            notionalAmount,
-            int256(notionalAmount),
-            Status.Active,
-            originalLeg.startDate,
-            originalLegId,
-            pairLegTokenLatestPrice,
-            yieldId
-        );
+        IERC20(settledStableToken).transferFrom(msg.sender, address(this), swapContract.notionalAmount / 2);
 
-        legs[originalLegId].pairLegId = pairLegId;
-        legs[originalLegId].status = Status.Active;
-
-        int256 originalLegPrice = priceFeeds.getLatestPrice(originalLeg.tokenAddress);
-        legs[originalLegId].benchPrice = originalLegPrice;
-
-        emit PairSwap(originalLegId, pairLegId, msg.sender);
+        uint256 shares;
+        if (swapContract.yieldId != 0) {
+            address yieldAddress = yieldStrategyManager.getYieldStrategy(swapContract.yieldId);
+            shares = yieldAddress.depositYield(swapContract.yieldId, swapContract.notionalAmount / 2, address(this));
+        }
+        
+        swapContract.yieldShares += shares;
     }
 
     // This function was called by chainlink or by the user
@@ -330,35 +271,20 @@ contract CryptoSwap is Ownable {
         // Confirm the formula is right, especially confirm the loss of precision
     }
 
-    function _createLeg(
-        address legToken,
-        uint256 notionalAmount,
-        int256 balance,
-        Status status,
-        uint64 startDate,
-        uint64 pairLegId,
-        int256 benchPrice,
-        uint8 yieldId
-    )
-        internal
-        returns (uint64 legId)
-    {
-        Leg memory leg = Leg({
-            swaper: msg.sender,
-            tokenAddress: legToken,
-            notionalAmount: notionalAmount,
-            yieldId: yieldId,
-            balance: balance,
-            startDate: startDate,
-            status: status,
-            pairLegId: pairLegId, // Status.Open also means the pairLegId is 0
-            benchPrice: benchPrice // TODO more check(store need to compare with the deposited USDC) BenchPrice is
-                // updatated on
-                // the startDate
-         });
-
-        legs[maxLegId] = leg;
-        return maxLegId++;
+    function handleLegs(uint8 _feedIdA, uint8 _feedIdB) internal returns (Leg memory legA, Leg memory legB) {
+        legA = Leg({
+            legPosition: true,
+            feedId: _feedIdA,
+            balance: 0,
+            benchPrice: 0
+        });
+    
+        legB = Leg({
+            legPosition: false,
+            feedId: _feedIdB,
+            balance: 0,
+            benchPrice: 0
+        });
     }
 
     function queryLeg(uint64 legId) external view returns (Leg memory) {

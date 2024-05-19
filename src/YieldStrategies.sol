@@ -5,23 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { console2 } from "forge-std/src/console2.sol";
 
-contract YieldStrategies is Ownable {
+contract YieldStrategyManager is Ownable {
     mapping(uint8 => address) public yieldAddresses;
     address private immutable settledToken;
 
-    constructor(
-        uint8[] memory yieldIds,
-        address[] memory yieldAddress,
-        address settledStableToken
-    )
-        Ownable(_msgSender())
-    {
-        settledToken = settledStableToken;
-        require(yieldIds.length == yieldAddress.length, "The length of the yields and yieldAddress should be equal");
-        for (uint8 i; i < yieldIds.length; i++) {
-            yieldAddresses[yieldIds[i]] = yieldAddress[i];
-        }
-    }
+    constructor() Ownable(msg.sender) {}
 
     // TODO different yield strategy may have different deposit function, so should use different function depends on
     // different yield strategy
