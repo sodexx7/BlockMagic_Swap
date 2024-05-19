@@ -174,14 +174,17 @@ contract CryptoSwap is Ownable {
     
 
     function settleSwap(uint256 _swapContractMasterId, uint256 _swapContractId) external {
+        require(msg.sender == swapContract.userA || msg.sender == swapContract.userB, "Unauthorized!");
+
         SwapContract memory swapContract = swapContracts[_swapContractMasterId][_swapContractId];
 
-        if (swapContract.status == Status.ACTIVE && block.timestamp >= swapContract.period.startDate + (swapContract.period.periodInterval * swapContract.period.intervalCount)) {
-            _updatePosition(_swapContractMasterId, _swapContractId);
-        }
+        require(swapContract.status == Status.ACTIVE, "The swapContract is not active")
 
-        if (swapContract.status == Status.ACTIVE && block.timestamp < swapContract.period.startDate + (swapContract.period.periodInterval * swapContract.period.intervalCount)) {
+        if (block.timestamp >= swapContract.period.startDate + (swapContract.period.periodInterval * swapContract.period.intervalCount)) {
+            _updatePosition(_swapContractMasterId, _swapContractId);
+        } else {
             swapContracts[_swapContractMasterId][_swapContractId].status = Status.SETTLED;
+
         }
     }
 
