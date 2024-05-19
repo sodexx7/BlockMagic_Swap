@@ -27,18 +27,17 @@ contract CryptoSwap is Ownable {
     mapping(uint256 => mapping(uint256 => mapping(bool => uint256))) public balances; 
 
     enum Status {
-        Open,
-        Active,
-        Settled,
-        Cancelled // User cancelled the order or no taker
+        OPEN,
+        ACTIVE,
+        SETTLED,
+        CANCELLED // User cancelled the order or no taker
     }
 
-    enum PeriodType {
-        Daily,
-        Weekly,
-        Monthly,
-        Quarterly,
-        Yearly
+    enum PeriodInterval {
+        WEEKLY,
+        MONTHLY,
+        QUARTERLY,
+        YEARLY
     }
 
     /**
@@ -73,14 +72,17 @@ contract CryptoSwap is Ownable {
     struct Leg {
         bool legPosition; // true for legA, false for legB
         uint64 feedId;
-        int256 balance;
         int256 benchPrice;
+        int256 lastPrice;
+        uint256 balance;
+        uint256 withdrawable;
+        uint256 poolPercentage; // percentage of the pool that this Leg currently owns
     }
 
     struct Period{
         uint64 startDate;
-        uint16 periodIntervals;
-        PeriodType periodType;
+        uint32 periodInterval;
+        uint16 intervalCount;
     }
 
     constructor(
@@ -89,14 +91,15 @@ contract CryptoSwap is Ownable {
     )
         Ownable(msg.sender)
     {
-        priceFeedManager = IPriceFeedManager(priceFeedsManager);
+        priceFeedManager = IPriceFeedManager(priceFeedManager);
         yieldStrategyManager = IYieldStrategyManager(yieldStrategyManager);
     }
 
     function openSwap(
         uint256 _contractCreationCount,
         uint256 _notionalAmount,
-        Period _period,
+        uint64 _startDate,
+        uint8 _periodType,
         uint8 _settlementTokenId,
         uint8 _feedIdA,
         uint8 _feedIdB,
@@ -104,7 +107,8 @@ contract CryptoSwap is Ownable {
     )
         external
     {
-        require(_period.startDate >= block.timestamp, "startDate >= block.timestamp");
+        require(_startDate >= block.timestamp, "startDate >= block.timestamp");
+        require(_periodType <= 3, "Invalid period type");
         require(_notionalAmount % 10 == 0, "The notional amount must be a multiple of 10");
 
         IERC20(settlementTokenAddresses[_settlementTokenId]).transferFrom(msg.sender, address(this), (_contractCreationCount * _notionalAmount) / 2);
@@ -115,13 +119,14 @@ contract CryptoSwap is Ownable {
             shares = yieldAddress.depositYield(_yieldId, (_contractCreationCount * _notionalAmount) / 2, address(this));
         }
 
-        (Leg memory legA, Leg memory legB) = handleLegs(_feedIdA, _feedIdB);
+        (Leg memory legA, Leg memory legB) = _handleLegs(_feedIdA, _feedIdB);
+        Period memory period = _handlePeriod(_startDate, _periodType);
 
         for(uint256 i = 0; i < _contractCreationCount; i++) {
             SwapContract memory swapContract = SwapContract({
                 contractMasterId: contractMasterId,
                 contractId: i,
-                period: _period,
+                period: period,
                 userA: msg.sender,
                 userB: address(0),
                 legA: legA,
@@ -143,157 +148,165 @@ contract CryptoSwap is Ownable {
 
     function pairSwap(uint256 _swapContractMasterId, uint256 _swapContractId) external {
         SwapContract storage swapContract = swapContracts[_swapContractMasterId][_swapContractId];
-        require(swapContract.status == Status.Open, "The swapContract is not open");
-
+        require(swapContract.status == Status.OPEN, "The swapContract is not open");
+    
         swapContract.userB = msg.sender;
-
-        int256 legALatestPrice = priceFeeds.getLatestPrice(swapContract.legA.feedId);
-        int256 legBLatestPrice = priceFeeds.getLatestPrice(swapContract.legB.feedId);
-
-        swapContract.legA.benchPrice = legALatestPrice;
-        swapContract.legB.benchPrice = legBLatestPrice;
-
         swapContract.status = Status.Active;
-
-        IERC20(settledStableToken).transferFrom(msg.sender, address(this), swapContract.notionalAmount / 2);
-
-        uint256 shares;
+    
+        int256 legALatestPrice = priceFeedManager.getLatestPrice(swapContract.legA.feedId);
+        int256 legBLatestPrice = priceFeedManager.getLatestPrice(swapContract.legB.feedId);
+    
+        swapContract.legA.benchPrice = legALatestPrice;
+        swapContract.legA.lastPrice = legALatestPrice;
+        swapContract.legB.benchPrice = legBLatestPrice;
+        swapContract.legB.lastPrice = legBLatestPrice;
+    
+        uint256 halfNotionalAmount = swapContract.notionalAmount / 2;
+        IERC20(settledStableToken).transferFrom(msg.sender, address(this), halfNotionalAmount);
+    
+        // Handle yield shares
         if (swapContract.yieldId != 0) {
             address yieldAddress = yieldStrategyManager.getYieldStrategy(swapContract.yieldId);
-            shares = yieldAddress.depositYield(swapContract.yieldId, swapContract.notionalAmount / 2, address(this));
+            uint256 shares = yieldAddress.depositYield(swapContract.yieldId, halfNotionalAmount, address(this));
+            swapContract.yieldShares += shares;
         }
-        
-        swapContract.yieldShares += shares;
+    }
+    
+
+    function settleSwap(uint256 _swapContractMasterId, uint256 _swapContractId) external {
+        SwapContract memory swapContract = swapContracts[_swapContractMasterId][_swapContractId];
+
+        if (swapContract.status == Status.ACTIVE && block.timestamp >= swapContract.period.startDate + (swapContract.period.periodInterval * swapContract.period.intervalCount)) {
+            _updatePosition(_swapContractMasterId, _swapContractId);
+        }
+
+        if (swapContract.status == Status.ACTIVE && block.timestamp < swapContract.period.startDate + (swapContract.period.periodInterval * swapContract.period.intervalCount)) {
+            swapContracts[_swapContractMasterId][_swapContractId].status = Status.SETTLED;
+        }
     }
 
-    // This function was called by chainlink or by the user
-    // TODO Use historical price instead
-    /**
-     * @dev The function will settle the swap, and the winner will get the profit. the profit was calculated by the
-     * increased rate mulitiply the benchSettlerAmount
-     *    x`: the price of the original leg's underlying at fixingDate
-     *    x : the price of the original leg's underlying at startDate
-     *    y`: the price of the pair leg's underlying at fixingDate
-     *    y : the price of the pair leg's underlying at startDate
-     *    notionalAmount: the notional value of the two legs
-     *  // // *    benchSettlerAmount: the smaller settledStableTokenAmount of the two legs
-     *
-     *    when x`/x > y`/y, the profit is (x`*y - x*y`) * notionalAmount / (x*y)
-     *    when y`/y > x`/x, the profit is (y`*x - y*x`) * notionalAmount / (y*x)
-     *    How to get the formula:
-     *    if y`/y > x`/x
-     *    (y`/y - x`/x) * notionalAmount => (y`*x - y*x`) / y*x*notionalAmount => (y`*x - y*x`) * notionalAmount / (y*x)
-     */
-    function settleSwap(uint64 legId) external {
-        // TODO more conditions check
-        // 1. time check
-        Leg memory originalLeg = legs[legId];
-        Leg memory pairLeg = legs[originalLeg.pairLegId];
-        require(originalLeg.status == Status.Active && pairLeg.status == Status.Active, "The leg is not active");
+    function withdrawWinnings(uint256 masterId, uint256 contractId) public {
+        SwapContract memory swapContract = swapContracts[masterId][contractId];
+        require(msg.sender == contract.userA || msg.sender == contract.userB, "Unauthorized!");
+    
+        bool user = msg.sender == swapContract.userA ? true : false;
 
-        // // uint256 originaSettledStableTokenAmount = originalLeg.notionalAmount;
-        // // uint256 pairSettledStableTokenAmount = originalLeg.notionalAmount;
-        // // uint256 benchSettlerAmount = originaSettledStableTokenAmount >= pairSettledStableTokenAmount
-        // //     ? originaSettledStableTokenAmount
-        // //     : pairSettledStableTokenAmount;
+        if (user == true) {
+            require(swapContract.legA.withdrawable > 0, "No winnings available to withdraw!");
 
-        uint256 notionalAmount = originalLeg.notionalAmount;
+            uint256 amount = swapContract.legA.withdrawable
+            IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
 
-        // TODO precious and arithmetic calculation check, security check
-        int256 originalLegTokenLatestPrice = priceFeeds.getLatestPrice(originalLeg.tokenAddress);
-        int256 pairLegTokenLatestPrice = priceFeeds.getLatestPrice(pairLeg.tokenAddress);
-
-        // compare the price change for the two legs
-        address winner;
-        uint256 profit;
-        uint64 loserLegId = legId;
-        // TODO, It's rare that existed the equal, should limited in a range(as 0.1% -> 0.2%)
-        if (originalLegTokenLatestPrice * pairLeg.benchPrice == pairLegTokenLatestPrice * originalLeg.benchPrice) {
-            // the increased rates of  both legToken price are all equal
-            emit NoProfitWhileSettle(legId, originalLeg.swaper, pairLeg.swaper);
-            return;
-        } else if (originalLegTokenLatestPrice * pairLeg.benchPrice > pairLegTokenLatestPrice * originalLeg.benchPrice)
-        {
-            profit = (
-                uint256(
-                    originalLegTokenLatestPrice * pairLeg.benchPrice - originalLeg.benchPrice * pairLegTokenLatestPrice
-                ) * notionalAmount
-            ) / uint256(originalLeg.benchPrice * pairLeg.benchPrice);
-            winner = originalLeg.swaper;
-            console2.log("winner: opener");
-            //TODO check update notional value, check the precious
-            legs[legId].balance += int256(profit);
-            legs[originalLeg.pairLegId].balance -= int256(profit);
-            loserLegId = originalLeg.pairLegId;
+            swapContract.legA.withdrawable = 0;
         } else {
-            profit = (
-                uint256(
-                    pairLegTokenLatestPrice * originalLeg.benchPrice - originalLegTokenLatestPrice * pairLeg.benchPrice
-                ) * notionalAmount
-            ) / uint256(originalLeg.benchPrice * pairLeg.benchPrice);
+            require(swapContract.legB.withdrawable > 0, "No winnings available to withdraw!");
 
-            legs[legId].balance -= int256(profit);
-            legs[originalLeg.pairLegId].balance += int256(profit);
-            console2.log("winner: parier");
-            winner = pairLeg.swaper;
+            uint256 amount = swapContract.legB.withdrawable
+            IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, swapContract.legB.withdrawable);
+
+            swapContract.legB.withdrawable = 0;
         }
-        // console2.log("winner:", winner);
-        uint8 usdcDecimals = ERC20(settledStableToken).decimals();
-        // console2.log("profit:", profit / 10**usdcDecimals, "USDC");
-
-        // TODO update bench price for the two legs
-        legs[legId].benchPrice = originalLegTokenLatestPrice;
-        legs[originalLeg.pairLegId].benchPrice = pairLegTokenLatestPrice;
-
-        // IERC20(settledStableToken).transfer(winner, profit);
-
-        // TODO below logic should optimize
-        address yieldAddress = YieldStrategies.getYieldStrategy(legs[loserLegId].yieldId);
-        uint256 shares = convertShareToUnderlyingAmount(loserLegId, profit);
-        IERC20(yieldAddress).transfer(address(YieldStrategies), shares);
-
-        // TODO below function should check
-        console2.log("expected profit", profit);
-        uint256 actualProfit = YieldStrategies.withdrawYield(legs[loserLegId].yieldId, shares, winner);
-        console2.log("actual profit", actualProfit);
-
-        // IERC20(settledStableToken).transfer(winner, actualProfit);
-
-        // when end, the status of the two legs should be settled
-        legs[legId].status = Status.Settled;
-        legs[originalLeg.pairLegId].status = Status.Settled;
-
-        // TODO , endDate, just close this swap.
-        emit SettleSwap(legId, winner, settledStableToken, profit);
-
-        // TODO
-        // Related test cases
-        // Confirm the formula is right, especially confirm the loss of precision
     }
 
-    function handleLegs(uint8 _feedIdA, uint8 _feedIdB) internal returns (Leg memory legA, Leg memory legB) {
+    // If the user does not check their position for many intervals gas will become very expensive
+    // Max possible intervals before breaking due to block gas limits is roughly 300
+    // It is important for users to stay current with their position
+    function _updatePosition(uint256 masterId, uint256 contractId) internal {
+        SwapContract storage swapContract = swapContracts[masterId][contractId];
+        Period storage period = swapContract.period;
+
+        uint256 startDate = period.startDate;
+        uint256 periodInterval = period.periodInterval;
+    
+        while (block.timestamp >= period.startDate + (period.periodInterval * period.intervalCount)) {
+            uint256 intervalCount = period.intervalCount;
+            int256 currentPriceA = priceFeedManager.getHistoryPrice(swapContract.legA.feedId, startDate + (periodInterval * intervalCount));
+            int256 currentPriceB = priceFeedManager.getHistoryPrice(swapContract.legB.feedId, startDate + (periodInterval * intervalCount));
+        
+            int256 legALastPrice = swapContract.legA.lastPrice;
+            int256 legBLastPrice = swapContract.legB.lastPrice;
+            int256 performanceA = (currentPriceA - legALastPrice) * 10000 / legALastPrice;
+            int256 performanceB = (currentPriceB - legBLastPrice) * 10000 / legBLastPrice;
+        
+            uint256 legABalance = swapContract.legA.balance;
+            uint256 legBBalance = swapContract.legB.balance;
+
+            uint256 totalValue = legABalance + legBBalance;
+            uint256 performanceDiff;
+            uint256 valueChange;
+    
+            if (performanceA > performanceB) {
+                performanceDiff = uint256(performanceA - performanceB);
+                // Apply the poolPercentage to calculate the value change
+                valueChange = (performanceDiff * totalValue * swapContract.legA.poolPercentage) / 1000000; // Adjusted for basis points and percentage
+                swapContract.legA.withdrawable += valueChange;
+                legBBalance -= valueChange;
+            } else if (performanceB > performanceA) {
+                performanceDiff = uint256(performanceB - performanceA);
+                valueChange = (performanceDiff * totalValue * swapContract.legB.poolPercentage) / 1000000; // Adjusted for basis points and percentage
+                legABalance -= valueChange;
+                swapContract.legB.withdrawable += valueChange;
+            }
+
+            // Update the pool percentages based on new balances
+            uint256 newLegABalance = swapContract.legA.balance;
+            uint256 newLegBBalance = swapContract.legB.balance;
+            uint256 newTotal = swapContract.legA.balance + swapContract.legB.balance;
+            swapContract.legA.poolPercentage = (newLegABalance * 10000) / newTotal;
+            swapContract.legB.poolPercentage = (newLegBBalance * 10000) / newTotal;
+    
+            // Update last prices for next interval
+            swapContract.legA.lastPrice = currentPriceA;
+            swapContract.legB.lastPrice = currentPriceB;
+        
+            period.intervalCount++;
+        }    
+    }
+
+    ///////////////////////////////////////////////////////
+    //              HELPER FUNCTIONS                    ///
+    ///////////////////////////////////////////////////////
+
+    function _handleLegs(uint256 _notionalAmount, uint8 _feedIdA, uint8 _feedIdB) internal returns (Leg memory legA, Leg memory legB) {
         legA = Leg({
             legPosition: true,
             feedId: _feedIdA,
-            balance: 0,
-            benchPrice: 0
+            benchPrice: 0,
+            lastPrice: 0,
+            withdrawable: 0,
+            balance: _notionalAmount / 2,
+            poolPercentage: 50e18
         });
     
         legB = Leg({
             legPosition: false,
             feedId: _feedIdB,
-            balance: 0,
-            benchPrice: 0
+            benchPrice: 0,
+            lastPrice: 0,
+            withdrawable: 0,
+            balance: _notionalAmount / 2,
+            poolPercentage: 50e18
         });
     }
 
-    function queryLeg(uint64 legId) external view returns (Leg memory) {
-        return legs[legId];
+    function _handlePeriod(uint64 _startDate, uint8 _periodType) internal returns (Period memory period) {
+        period = Period({
+            startDate: _startDate,
+            periodInterval: 0,
+            intervalCount: 0
+        });
+    
+        if (_periodType == 0) {
+            period.periodInterval = 7 days;
+        } else if (_periodType == 1) {
+            period.periodInterval = 30 days;
+        } else if (_periodType == 2) {
+            period.periodInterval = 90 days;
+        } else {
+            period.periodInterval = 365 days;
+        }
     }
 
-    // TODO ,temp function should consider move to YieldStrategies contract. Are there problems related with applying
-    // notionalAmount directly?
-    // convert the share to the underlying amount
     function convertShareToUnderlyingAmount(uint64 legId, uint256 profit) internal view returns (uint256) {
         uint256 shares = legIdShares[legId] * profit / legs[legId].notionalAmount;
         return shares;
