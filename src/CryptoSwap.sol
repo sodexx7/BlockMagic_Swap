@@ -188,7 +188,7 @@ contract CryptoSwap is Ownable {
     function withdrawWinnings(uint256 masterId, uint256 contractId) public {
         SwapContract memory swapContract = swapContracts[masterId][contractId];
         require(msg.sender == swapContract.userA || msg.sender == swapContract.userB, "Unauthorized!");
-        require(swapContract.status =! Status.OPEN, "The swapContract is not active, settled, cancelled")
+        require(swapContract.status != Status.OPEN, "The swapContract is not active, settled, cancelled");
     
         bool user = msg.sender == swapContract.userA ? true : false;
 
@@ -327,7 +327,7 @@ contract CryptoSwap is Ownable {
     }
 
     ///////////////////////////////////////////////////////
-    //              HELPER FUNCTIONS                    ///
+    //              SETUP FUNCTIONS                    ///
     ///////////////////////////////////////////////////////
 
     function addSettlementToken(uint8 _tokenId, address _tokenAddress) external onlyOwner {
