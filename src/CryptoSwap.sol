@@ -81,7 +81,8 @@ contract CryptoSwap is Ownable {
     struct Period{
         uint64 startDate;
         uint32 periodInterval;
-        uint16 intervalCount;
+        uint8 totalIntervals;
+        uint8 intervalCount;
     }
 
     constructor(
@@ -101,6 +102,7 @@ contract CryptoSwap is Ownable {
         uint16 _feedIdA,
         uint16 _feedIdB,
         uint8 _periodType,
+        uint8 _totalIntervals,
         uint8 _settlementTokenId,
         uint8 _yieldId
     )
@@ -118,7 +120,7 @@ contract CryptoSwap is Ownable {
         }
 
         (Leg memory legA, Leg memory legB) = _handleLegs(_notionalAmount, _feedIdA, _feedIdB);
-        Period memory period = _handlePeriod(_startDate, _periodType);
+        Period memory period = _handlePeriod(_startDate, _periodType, _totalIntervals);
 
         for(uint256 i = 0; i < _contractCreationCount; i++) {
             SwapContract memory swapContract = SwapContract({
@@ -176,7 +178,7 @@ contract CryptoSwap is Ownable {
 
         require(swapContract.status == Status.ACTIVE, "The swapContract is not active");
 
-        if (block.timestamp >= swapContract.period.startDate + (swapContract.period.periodInterval * swapContract.period.intervalCount)) {
+        if (block.timestamp >= swapContract.period.startDate + (swapContract.period.periodInterval * swapContract.period.totalIntervals)) {
             _updatePosition(_swapContractMasterId, _swapContractId);
         } else {
             swapContracts[_swapContractMasterId][_swapContractId].status = Status.SETTLED;
@@ -217,7 +219,7 @@ contract CryptoSwap is Ownable {
         uint256 startDate = period.startDate;
         uint256 periodInterval = period.periodInterval;
     
-        while (block.timestamp >= period.startDate + (period.periodInterval * period.intervalCount)) {
+        while (block.timestamp >= startDate + (periodInterval * period.intervalCount)) {
             uint256 intervalCount = period.intervalCount;
             int256 currentPriceA = priceFeedManager.getHistoryPrice(swapContract.legA.feedId, startDate + (periodInterval * intervalCount));
             int256 currentPriceB = priceFeedManager.getHistoryPrice(swapContract.legB.feedId, startDate + (periodInterval * intervalCount));
@@ -288,10 +290,11 @@ contract CryptoSwap is Ownable {
         });
     }
 
-    function _handlePeriod(uint64 _startDate, uint8 _periodType) internal returns (Period memory period) {
+    function _handlePeriod(uint64 _startDate, uint8 _periodType, uint8 _totalIntervals) internal returns (Period memory period) {
         period = Period({
             startDate: _startDate,
             periodInterval: 0,
+            totalIntervals: _totalIntervals,
             intervalCount: 0
         });
     
