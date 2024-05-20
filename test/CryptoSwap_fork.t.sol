@@ -144,10 +144,18 @@ contract CryptoSwapTestFork is InitForkTest {
         makeSettlementFromFortk(mainnetFork_15032024);
     }
 
+
+    // 20/03/2024   BTC: ~61_930 USD, ETH: ~3_158 USD
+    // 02/05/2024 - BTC: ~58_253 USD, ETH: ~2_969 USD
     function test_settlePairerWinForkBearishMarket() external {
         makeSettlementFromFortk(mainnetFork_02052024);
     }
 
+    // 20/03/2024 BTC: ~61_930 USD, ETH: ~3_158 USD
+    // 15/03/2024 BTC: ~71_387 USD, ETH: ~3_888 USD
+
+    //  openerLeg benchPrice: 3227 ETH / USD 322766776503
+    //  openerLeg latestPrice: 3707 ETH / USD 370766673501
     function makeSettlementFromFortk(uint256 fork) private {
         uint256 startDate = block.timestamp + 1 days;
 
@@ -170,6 +178,7 @@ contract CryptoSwapTestFork is InitForkTest {
         usdcContract.approve(address(cryptoSwap), pairUsdcAmount);
         cryptoSwap.pairSwap(originalLegId, pairUsdcAmount, btcTokenAddress, yieldIds[0]); // yieldId yearn
         vm.stopPrank();
+
         ///  pairer  ///
 
         // Make persistent account
