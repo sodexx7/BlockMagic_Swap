@@ -178,11 +178,10 @@ contract CryptoSwap is Ownable {
 
         require(swapContract.status == Status.ACTIVE, "The swapContract is not active");
 
-        if (block.timestamp >= swapContract.period.startDate + (swapContract.period.periodInterval * swapContract.period.totalIntervals)) {
+        if (block.timestamp < swapContract.period.startDate + (swapContract.period.periodInterval * swapContract.period.totalIntervals)) {
             _updatePosition(_swapContractMasterId, _swapContractId);
         } else {
             swapContracts[_swapContractMasterId][_swapContractId].status = Status.SETTLED;
-
         }
     }
 
@@ -196,24 +195,30 @@ contract CryptoSwap is Ownable {
         if (swapContract.status == Status.ACTIVE) {
             if (user == true) {
                 require(swapContract.legA.withdrawable > 0, "No winnings available to withdraw!");
+
+                swapContract.legA.withdrawable = 0;
     
                 uint256 amount = swapContract.legA.withdrawable;
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
-    
-                swapContract.legA.withdrawable = 0;
-            } else {
+                } else {
                 require(swapContract.legB.withdrawable > 0, "No winnings available to withdraw!");
+
+                swapContract.legB.withdrawable = 0;
     
                 uint256 amount = swapContract.legB.withdrawable;
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, amount);
-    
-                swapContract.legB.withdrawable = 0;
-            }
+                }
         } else {
             if (user == true) {
+
+                swapContract.legA.balance = 0;
+
                 uint256 amount = swapContract.legA.balance;
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
             } else {
+
+                swapContract.legB.balance = 0;
+
                 uint256 amount = swapContract.legB.balance;
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, amount);
             
