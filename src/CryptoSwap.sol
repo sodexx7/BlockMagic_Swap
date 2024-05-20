@@ -98,10 +98,10 @@ contract CryptoSwap is Ownable {
         uint256 _contractCreationCount,
         uint256 _notionalAmount,
         uint64 _startDate,
-        uint8 _periodType,
-        uint8 _settlementTokenId,
         uint16 _feedIdA,
         uint16 _feedIdB,
+        uint8 _periodType,
+        uint8 _settlementTokenId,
         uint8 _yieldId
     )
         external
