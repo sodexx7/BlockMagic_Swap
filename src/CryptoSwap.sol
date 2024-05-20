@@ -189,23 +189,35 @@ contract CryptoSwap is Ownable {
     function withdrawWinnings(uint256 masterId, uint256 contractId) public {
         SwapContract memory swapContract = swapContracts[masterId][contractId];
         require(msg.sender == swapContract.userA || msg.sender == swapContract.userB, "Unauthorized!");
+        require(swapContract.status =! Status.OPEN, "The swapContract is not active, settled, cancelled")
     
         bool user = msg.sender == swapContract.userA ? true : false;
 
-        if (user == true) {
-            require(swapContract.legA.withdrawable > 0, "No winnings available to withdraw!");
-
-            uint256 amount = swapContract.legA.withdrawable;
-            IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
-
-            swapContract.legA.withdrawable = 0;
+        if (swapContract.status == Status.ACTIVE) {
+            if (user == true) {
+                require(swapContract.legA.withdrawable > 0, "No winnings available to withdraw!");
+    
+                uint256 amount = swapContract.legA.withdrawable;
+                IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
+    
+                swapContract.legA.withdrawable = 0;
+            } else {
+                require(swapContract.legB.withdrawable > 0, "No winnings available to withdraw!");
+    
+                uint256 amount = swapContract.legB.withdrawable;
+                IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, amount);
+    
+                swapContract.legB.withdrawable = 0;
+            }
         } else {
-            require(swapContract.legB.withdrawable > 0, "No winnings available to withdraw!");
-
-            uint256 amount = swapContract.legB.withdrawable;
-            IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, swapContract.legB.withdrawable);
-
-            swapContract.legB.withdrawable = 0;
+            if (user == true) {
+                uint256 amount = swapContract.legA.balance;
+                IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
+            } else {
+                uint256 amount = swapContract.legB.balance;
+                IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, amount);
+            
+            }
         }
     }
 
