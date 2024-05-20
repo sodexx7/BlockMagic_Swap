@@ -321,6 +321,20 @@ contract CryptoSwap is Ownable {
         }
     }
 
+    ///////////////////////////////////////////////////////
+    //              HELPER FUNCTIONS                    ///
+    ///////////////////////////////////////////////////////
+
+    function addSettlementToken(uint8 _tokenId, address _tokenAddress) external onlyOwner {
+        require(settlementTokenAddresses[_tokenId] == address(0), "The token already exists");
+        settlementTokenAddresses[_tokenId] = _tokenAddress;
+    }
+
+    function removeSettlementToken(uint8 _tokenId) external onlyOwner {
+        require(settlementTokenAddresses[_tokenId] != address(0), "The token does not exist");
+        delete settlementTokenAddresses[_tokenId];
+    }
+
     // function convertShareToUnderlyingAmount(uint64 legId, uint256 profit) internal view returns (uint256) {
     //     uint256 shares = legIdShares[legId] * profit / legs[legId].notionalAmount;
     //     return shares;
