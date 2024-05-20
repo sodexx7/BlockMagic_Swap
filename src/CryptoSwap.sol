@@ -6,7 +6,7 @@ import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/Saf
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import "./interfaces/IPriceFeedManager.sol";
-import "./interfaces/IYieldStrategies.sol";
+import "./interfaces/IYieldStrategyManager.sol";
 
 contract CryptoSwap is Ownable {
     using SafeERC20 for IERC20;
@@ -61,8 +61,7 @@ contract CryptoSwap is Ownable {
         Period period;
         Leg legA;
         Leg legB;
-        uint16 periodIntervals;
-        uint8 settlementTokenId
+        uint8 settlementTokenId;
         uint8 yieldId;
         uint256 notionalAmount;
         uint256 yieldShares;
@@ -71,7 +70,7 @@ contract CryptoSwap is Ownable {
 
     struct Leg {
         bool legPosition; // true for legA, false for legB
-        uint64 feedId;
+        uint16 feedId;
         int256 benchPrice;
         int256 lastPrice;
         uint256 balance;
@@ -101,8 +100,8 @@ contract CryptoSwap is Ownable {
         uint64 _startDate,
         uint8 _periodType,
         uint8 _settlementTokenId,
-        uint8 _feedIdA,
-        uint8 _feedIdB,
+        uint16 _feedIdA,
+        uint16 _feedIdB,
         uint8 _yieldId
     )
         external
@@ -115,31 +114,29 @@ contract CryptoSwap is Ownable {
 
         uint256 shares;
         if (_yieldId != 0) {
-            address yieldAddress = yieldStrategyManager.getYieldStrategy(_yieldId);
-            shares = yieldAddress.depositYield(_yieldId, (_contractCreationCount * _notionalAmount) / 2, address(this));
+            shares = yieldStrategyManager.depositYield(_yieldId, (_contractCreationCount * _notionalAmount) / 2, address(this));
         }
 
-        (Leg memory legA, Leg memory legB) = _handleLegs(_feedIdA, _feedIdB);
+        (Leg memory legA, Leg memory legB) = _handleLegs(_notionalAmount, _feedIdA, _feedIdB);
         Period memory period = _handlePeriod(_startDate, _periodType);
 
         for(uint256 i = 0; i < _contractCreationCount; i++) {
             SwapContract memory swapContract = SwapContract({
                 contractMasterId: contractMasterId,
                 contractId: i,
-                period: period,
                 userA: msg.sender,
                 userB: address(0),
+                period: period,
                 legA: legA,
                 legB: legB,
                 settlementTokenId: _settlementTokenId,
                 yieldId: _yieldId,
                 notionalAmount: _notionalAmount,
                 yieldShares: shares,
-                status: Status.Open,
-
+                status: Status.OPEN
             });
 
-            swapContracts[contractMasterId][i][true] = swapContract;
+            swapContracts[contractMasterId][i] = swapContract;
         }
 
         contractCreationCount[contractMasterId] = _contractCreationCount;
@@ -151,7 +148,7 @@ contract CryptoSwap is Ownable {
         require(swapContract.status == Status.OPEN, "The swapContract is not open");
     
         swapContract.userB = msg.sender;
-        swapContract.status = Status.Active;
+        swapContract.status = Status.ACTIVE;
     
         int256 legALatestPrice = priceFeedManager.getLatestPrice(swapContract.legA.feedId);
         int256 legBLatestPrice = priceFeedManager.getLatestPrice(swapContract.legB.feedId);
@@ -162,23 +159,22 @@ contract CryptoSwap is Ownable {
         swapContract.legB.lastPrice = legBLatestPrice;
     
         uint256 halfNotionalAmount = swapContract.notionalAmount / 2;
-        IERC20(settledStableToken).transferFrom(msg.sender, address(this), halfNotionalAmount);
+        IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).transferFrom(msg.sender, address(this), halfNotionalAmount);
     
         // Handle yield shares
         if (swapContract.yieldId != 0) {
-            address yieldAddress = yieldStrategyManager.getYieldStrategy(swapContract.yieldId);
-            uint256 shares = yieldAddress.depositYield(swapContract.yieldId, halfNotionalAmount, address(this));
+            uint256 shares = yieldStrategyManager.depositYield(swapContract.yieldId, halfNotionalAmount, address(this));
             swapContract.yieldShares += shares;
         }
     }
     
 
     function settleSwap(uint256 _swapContractMasterId, uint256 _swapContractId) external {
-        require(msg.sender == swapContract.userA || msg.sender == swapContract.userB, "Unauthorized!");
-
         SwapContract memory swapContract = swapContracts[_swapContractMasterId][_swapContractId];
 
-        require(swapContract.status == Status.ACTIVE, "The swapContract is not active")
+        require(msg.sender == swapContract.userA || msg.sender == swapContract.userB, "Unauthorized!");
+
+        require(swapContract.status == Status.ACTIVE, "The swapContract is not active");
 
         if (block.timestamp >= swapContract.period.startDate + (swapContract.period.periodInterval * swapContract.period.intervalCount)) {
             _updatePosition(_swapContractMasterId, _swapContractId);
@@ -190,21 +186,21 @@ contract CryptoSwap is Ownable {
 
     function withdrawWinnings(uint256 masterId, uint256 contractId) public {
         SwapContract memory swapContract = swapContracts[masterId][contractId];
-        require(msg.sender == contract.userA || msg.sender == contract.userB, "Unauthorized!");
+        require(msg.sender == swapContract.userA || msg.sender == swapContract.userB, "Unauthorized!");
     
         bool user = msg.sender == swapContract.userA ? true : false;
 
         if (user == true) {
             require(swapContract.legA.withdrawable > 0, "No winnings available to withdraw!");
 
-            uint256 amount = swapContract.legA.withdrawable
+            uint256 amount = swapContract.legA.withdrawable;
             IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
 
             swapContract.legA.withdrawable = 0;
         } else {
             require(swapContract.legB.withdrawable > 0, "No winnings available to withdraw!");
 
-            uint256 amount = swapContract.legB.withdrawable
+            uint256 amount = swapContract.legB.withdrawable;
             IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, swapContract.legB.withdrawable);
 
             swapContract.legB.withdrawable = 0;
@@ -270,7 +266,7 @@ contract CryptoSwap is Ownable {
     //              HELPER FUNCTIONS                    ///
     ///////////////////////////////////////////////////////
 
-    function _handleLegs(uint256 _notionalAmount, uint8 _feedIdA, uint8 _feedIdB) internal returns (Leg memory legA, Leg memory legB) {
+    function _handleLegs(uint256 _notionalAmount, uint16 _feedIdA, uint16 _feedIdB) internal returns (Leg memory legA, Leg memory legB) {
         legA = Leg({
             legPosition: true,
             feedId: _feedIdA,
@@ -310,8 +306,8 @@ contract CryptoSwap is Ownable {
         }
     }
 
-    function convertShareToUnderlyingAmount(uint64 legId, uint256 profit) internal view returns (uint256) {
-        uint256 shares = legIdShares[legId] * profit / legs[legId].notionalAmount;
-        return shares;
-    }
+    // function convertShareToUnderlyingAmount(uint64 legId, uint256 profit) internal view returns (uint256) {
+    //     uint256 shares = legIdShares[legId] * profit / legs[legId].notionalAmount;
+    //     return shares;
+    // }
 }

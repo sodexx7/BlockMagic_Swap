@@ -14,10 +14,9 @@ import { console2 } from "forge-std/src/console2.sol";
 contract PriceFeedManager is Ownable, DegenFetcher {
     // TODO, Now directly get by price, can apply register in the future
     // tokenAddress=>priceFeedAddress
-    mapping(address => address) priceFeedAddresses;
+    mapping(uint16 => address) priceFeedAddresses;
 
-    constructor(address _tokenAddress, address _priceFeed) Ownable(_msgSender()) {
-        priceFeedAddresses[_tokenAddress] = _priceFeed;
+    constructor() Ownable(_msgSender()) {
     }
 
     /**
@@ -27,7 +26,7 @@ contract PriceFeedManager is Ownable, DegenFetcher {
      */
 
     //  TODO, should check updatTime, keep the price is the latest price
-    function getLatestPrice(address tokenAddress) public view returns (int256) {
+    function getLatestPrice(uint16 _feedId) public view returns (int256) {
         (
             /* uint80 roundID */
             ,
@@ -37,16 +36,16 @@ contract PriceFeedManager is Ownable, DegenFetcher {
             /* uint256 timeStamp */
             ,
             /* uint80 answeredInRound */
-        ) = AggregatorV3Interface(priceFeedAddresses[tokenAddress]).latestRoundData();
+        ) = AggregatorV3Interface(priceFeedAddresses[_feedId]).latestRoundData();
 
         return price;
     }
 
     // Through degenFetcher, get historypirce
     // TODO how to config the params?
-    function getHistoryPrice(address tokenAddress, uint256 timestamp) public view returns (int256) {
+    function getHistoryPrice(uint16 _feedId, uint256 timestamp) public view returns (int256) {
         int32[] memory prices =
-            fetchPriceDataForFeed(priceFeedAddresses[tokenAddress], timestamp, uint80(1), uint256(2));
+            fetchPriceDataForFeed(priceFeedAddresses[_feedId], timestamp, uint80(1), uint256(2));
         return prices[0];
     }
 
@@ -55,21 +54,21 @@ contract PriceFeedManager is Ownable, DegenFetcher {
      *
      * @return Price Feed address
      */
-    function getPriceFeed(address tokenAddress) public view returns (address) {
-        return priceFeedAddresses[tokenAddress];
+    function getPriceFeed(uint16 _feedId) public view returns (address) {
+        return priceFeedAddresses[_feedId];
     }
 
     // TODO for test
-    function description(address tokenAddress) public view returns (string memory) {
-        return AggregatorV3Interface(priceFeedAddresses[tokenAddress]).description();
+    function description(uint16 _feedId) public view returns (string memory) {
+        return AggregatorV3Interface(priceFeedAddresses[_feedId]).description();
     }
 
     // TODO, below function should optimize
-    function addPriceFeed(address tokenAddress, address priceFeedAddress) external onlyOwner {
-        priceFeedAddresses[tokenAddress] = priceFeedAddress;
+    function addPriceFeed(uint16 _feedId, address priceFeedAddress) external onlyOwner {
+        priceFeedAddresses[_feedId] = priceFeedAddress;
     }
 
-    function priceFeedDecimals(address tokenAddress) public view returns (uint8) {
-        return AggregatorV3Interface(priceFeedAddresses[tokenAddress]).decimals();
+    function priceFeedDecimals(uint16 _feedId) public view returns (uint8) {
+        return AggregatorV3Interface(priceFeedAddresses[_feedId]).decimals();
     }
 }

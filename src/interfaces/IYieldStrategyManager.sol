@@ -1,6 +1,6 @@
 pragma solidity 0.8.25;
 
-interface IYieldStrategies {
+interface IYieldStrategyManager {
     function depositYield(uint8 yieldStrategyId, uint256 amount, address recipient) external returns (uint256);
 
     // TODO  when dealing with withdraw yields,transfer to the CryptoSwap or directly to the user?
