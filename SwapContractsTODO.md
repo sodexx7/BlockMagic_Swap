@@ -1,6 +1,7 @@
 # todo list
 
-1. ~~profit calculation is wrong when all legs's price are down. like leg1 -7%, leg2 -8%~~  
+1. ~~profit calculation is wrong when all legs's price are down. like leg1 -7%, leg2 -8%~~
+
    - Bear and bull market test added
    - Profit calculation seems correct after test
 
@@ -21,8 +22,21 @@
 8. add fees while dealing one settle. 0.003.
 
 9. The ultimate design as below.
+
    1. swapFactory can create different type swap contract, now support cryptoSwap. the following support includes
       EquitySwap, ratesSwap
    2. all SwapContract will use the features ofX priceFeeds and YieldStrategys contract.
+
+10. How to define the increased interested rates equal?
+
+- Completely equal seems not practical, define a range? like as when the winner wins at least 5$, the winner can
+  withdraw the profit.
+
+11. Created deployed scripts, which can deplpyed smart contracts in different chains. like scroll,polygon...
+
+12. More security points check
+
+    - Access check
+    - chainlink time update
 
 ![external_result](ContractsDesign.png)
