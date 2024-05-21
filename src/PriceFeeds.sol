@@ -2,7 +2,7 @@
 pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./DegenFetcher.sol";
+import "./DegenFetcherV2.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV2V3Interface.sol";
 
 import { console2 } from "forge-std/src/console2.sol";
@@ -11,7 +11,7 @@ import { console2 } from "forge-std/src/console2.sol";
  * @title The PriceFeeds contract
  * @notice A contract that returns latest price from Chainlink Price Feeds
  */
-contract PriceFeeds is Ownable, DegenFetcher {
+contract PriceFeeds is Ownable, DegenFetcherV2 {
     // TODO, Now directly get by price, can apply register in the future
     // tokenAddress=>priceFeedAddress
     mapping(address => address) priceFeedAddresses;
@@ -45,9 +45,8 @@ contract PriceFeeds is Ownable, DegenFetcher {
     // Through degenFetcher, get historypirce
     // TODO how to config the params?
     function getHistoryPrice(address tokenAddress, uint256 timestamp) public view returns (int256) {
-        int32[] memory prices =
-            fetchPriceDataForFeed(priceFeedAddresses[tokenAddress], timestamp, uint80(1), uint256(2));
-        return prices[0];
+        int256 price = fetchPriceDataForFeed(priceFeedAddresses[tokenAddress], timestamp);
+        return price;
     }
 
     /**

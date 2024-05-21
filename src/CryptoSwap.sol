@@ -38,11 +38,11 @@ contract CryptoSwap is Ownable {
     }
 
     // TODO: Period should be set by the user
-    enum periodType {
-        Weekly,
-        Monthly,
-        Quarterly,
-        Yearly
+    enum PeriodInterval {
+        WEEKLY,
+        MONTHLY,
+        QUARTERLY,
+        YEARLY
     }
 
     /**
@@ -69,6 +69,14 @@ contract CryptoSwap is Ownable {
         /// @dev 0: not taken (open status), pairLegId>1: taken (active status)
         uint64 pairLegId;
         Status status;
+        Period period;
+    }
+
+    struct Period {
+        uint64 startDate;
+        uint32 periodInterval;
+        uint8 totalIntervals;
+        uint8 intervalCount;
     }
 
     /// @notice The legs
@@ -136,13 +144,15 @@ contract CryptoSwap is Ownable {
         uint8 notionalId,
         uint8 notionalCount,
         address legToken,
-        uint64 startDate,
+        uint64 _startDate,
+        uint8 _periodType,
+        uint8 _totalIntervals,
         uint8 yieldId
     )
         external
     {
         require(notionalId >= 1, "The notionalId should be greater than 0");
-        require(startDate > block.timestamp, "startDate should be greater than now"); // TODO change to custom error
+        require(_startDate > block.timestamp, "_startDate should be greater than now"); // TODO change to custom error
 
         uint256 balance = notionalValueOptions[notionalId] * notionalCount;
         require(
@@ -158,27 +168,31 @@ contract CryptoSwap is Ownable {
         uint256 shares = YieldStrategies.depositYield(yieldId, balance, address(this));
         legIdShares[maxLegId] = shares;
 
+        // Adding Period to the Leg
+        Period memory period = _handlePeriod(_startDate, _periodType, _totalIntervals);
+
         uint64 legId = maxLegId;
         for (uint256 i; i < notionalCount; i++) {
-            _createLeg(
-                legToken,
-                notionalValueOptions[notionalId],
-                int256(notionalValueOptions[notionalId]),
-                Status.Open,
-                startDate,
-                0,
-                0,
-                yieldId
-            );
+            _createLeg({
+                legToken: legToken,
+                notionalAmount: notionalValueOptions[notionalId],
+                period: period,
+                balance: int256(notionalValueOptions[notionalId]),
+                status: Status.Open,
+                startDate: _startDate,
+                pairLegId: 0,
+                benchPrice: 0,
+                yieldId: yieldId
+            });
         }
         if (notionalCount == 1) {
-            emit OpenSwap(legId, msg.sender, legToken, balance, startDate);
+            emit OpenSwap(legId, msg.sender, legToken, balance, _startDate);
         } else {
             uint64[] memory legIds = new uint64[](notionalCount);
             for (uint256 i; i < notionalCount; i++) {
                 legIds[i] = uint64(legId++);
             }
-            emit BatchOpenSwap(msg.sender, legToken, legIds, balance, notionalCount, startDate);
+            emit BatchOpenSwap(msg.sender, legToken, legIds, balance, notionalCount, _startDate);
         }
     }
 
@@ -323,9 +337,79 @@ contract CryptoSwap is Ownable {
         // Confirm the formula is right, especially confirm the loss of precision
     }
 
+    /// legA.tokenAddress is ledA.feedId
+    function getPerformanceForPeriod(
+        Leg memory leg,
+        uint256 startDate,
+        uint256 endDate
+    )
+        public
+        view
+        returns (int256, int256)
+    {
+        int256 startPrice = priceFeeds.getHistoryPrice(leg.tokenAddress, startDate);
+        int256 endPrice = priceFeeds.getHistoryPrice(leg.tokenAddress, endDate);
+
+        return (startPrice, endPrice);
+    }
+
+    function comparePerformanceForPeriod(
+        Leg memory legA,
+        Leg memory legB,
+        uint256 startDate,
+        uint256 endDate
+    )
+        public
+        view
+        returns (uint256, address, address)
+    {
+        uint256 profit;
+        address winner;
+        address loser;
+        (int256 legAStartPrice, int256 legAEndPrice) = getPerformanceForPeriod(legA, startDate, endDate);
+        (int256 legBStartPrice, int256 legBEndPrice) = getPerformanceForPeriod(legB, startDate, endDate);
+
+        if (legAEndPrice * legBStartPrice == legBEndPrice * legAStartPrice) {
+            return (0, address(0), address(0));
+        } else if (legAEndPrice * legBStartPrice > legBEndPrice * legAStartPrice) {
+            profit = (uint256(legAEndPrice * legBStartPrice - legAStartPrice * legBEndPrice))
+                / uint256(legAStartPrice * legBStartPrice);
+            winner = legA.swaper;
+            loser = legB.swaper;
+            console2.log("winner: maker");
+        } else {
+            profit = (uint256(legBEndPrice * legAStartPrice - legAEndPrice * legBStartPrice))
+                / uint256(legAStartPrice * legBStartPrice);
+            console2.log("winner: taker");
+            winner = legB.swaper;
+            loser = legA.swaper;
+        }
+        return (profit, winner, loser);
+    }
+
+    // function _updatePosition(uint256 masterId, uint256 contractId) internal { // TODO, Keep for FrontEnd version
+    function _updatePosition(Leg legA, Leg legB) internal {
+        // SwapContract storage swapContract = swapContracts[masterId][contractId];
+        // Period storage period = swapContract.period; // TODO, Keep for FrontEnd version
+        Period storage period = legA.period;
+
+        uint256 startDate = period.startDate;
+        uint256 periodInterval = period.periodInterval;
+
+        // 30/360 => 30 days per month / 360 days per year
+        // TODO: Need to calculate the number of time to loop
+        uint256 numberOfPeriods = (block.timestamp - startDate) / periodInterval;
+        while (block.timestamp >= startDate + (periodInterval * period.intervalCount)) {
+            uint256 intervalCount = period.intervalCount;
+
+            (profit, winner, loser) = comparePerformanceForPeriod(legA, legB, startDate, endDate);
+        }
+    }
+
     function _createLeg(
         address legToken,
         uint256 notionalAmount,
+        Period period,
         int256 balance,
         Status status,
         uint64 startDate,
@@ -345,10 +429,11 @@ contract CryptoSwap is Ownable {
             startDate: startDate,
             status: status,
             pairLegId: pairLegId, // Status.Open also means the pairLegId is 0
-            benchPrice: benchPrice // TODO more check(store need to compare with the deposited USDC) BenchPrice is
-                // updatated on
-                // the startDate
-         });
+            benchPrice: benchPrice, // TODO more check(store need to compare with the deposited USDC) BenchPrice is
+            period: period
+        });
+        // updatated on
+        // the startDate
 
         legs[maxLegId] = leg;
         return maxLegId++;
@@ -356,6 +441,31 @@ contract CryptoSwap is Ownable {
 
     function queryLeg(uint64 legId) external view returns (Leg memory) {
         return legs[legId];
+    }
+
+    ///////////////////////////////////////////////////////
+    //              HELPER FUNCTIONS                    ///
+    ///////////////////////////////////////////////////////
+
+    function _handlePeriod(
+        uint64 _startDate,
+        uint8 _periodType,
+        uint8 _totalIntervals
+    )
+        internal
+        returns (Period memory period)
+    {
+        period = Period({ startDate: _startDate, periodInterval: 0, totalIntervals: _totalIntervals, intervalCount: 0 });
+
+        if (_periodType == 0) {
+            period.periodInterval = 7 days;
+        } else if (_periodType == 1) {
+            period.periodInterval = 30 days;
+        } else if (_periodType == 2) {
+            period.periodInterval = 90 days;
+        } else {
+            period.periodInterval = 365 days;
+        }
     }
 
     // TODO ,temp function should consider move to YieldStrategies contract. Are there problems related with applying
