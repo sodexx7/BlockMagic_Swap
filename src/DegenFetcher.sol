@@ -2,6 +2,7 @@
 pragma solidity ^0.8.7;
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV2V3Interface.sol";
+import { console2 } from "forge-std/src/console2.sol";
 
 contract DegenFetcher {
     uint80 constant SECONDS_PER_DAY = 3600 * 24;
@@ -58,7 +59,9 @@ contract DegenFetcher {
             rhTime = 0;
         }
 
+        console2.log("fromRound:");
         uint80 fromRound = binarySearchForTimestamp(feed, fromTime, lhRound, lhTime, rhRound, rhTime);
+        console2.log("toRound:");
         uint80 toRound = binarySearchForTimestamp(feed, toTime, fromRound, fromTime, rhRound, rhTime);
         return (fromRound, toRound - fromRound);
     }
@@ -87,6 +90,8 @@ contract DegenFetcher {
                 (lhRound, lhTime) = (guessRound, guessTime);
             }
         }
+        console2.log("lhRound: ", lhRound, "rhRound: ", rhRound);
+        console2.log("guessRound: ", guessRound);
         return guessRound;
     }
 
@@ -101,6 +106,7 @@ contract DegenFetcher {
         returns (uint80[] memory)
     {
         (uint80 startingId, uint80 numRoundsToSearch) = guessSearchRoundsForTimestamp(feed, fromTimestamp, daysToFetch);
+        console2.log("startingId: ", startingId, " - numRoundsToSearch: ", numRoundsToSearch);
 
         uint80 fetchFilter = uint80(numRoundsToSearch / (daysToFetch * dataPointsToFetchPerDay));
         if (fetchFilter < 1) {
@@ -142,8 +148,10 @@ contract DegenFetcher {
 
         uint80 latestRoundId = uint80(feed.latestRound());
         for (uint80 i = 0; i < roundIds.length; i++) {
+            console2.log("roundId: ", roundIds[i]);
             if (roundIds[i] != 0 && roundIds[i] < latestRoundId) {
                 (, int256 price, uint256 timestamp,,) = feed.getRoundData(roundIds[i]);
+                console2.log("timestamp: ", timestamp, " - price: ", uint256(price / 10 ** 8));
 
                 if (timestamp >= fromTimestamp) {
                     uint256 segmentsSinceStart = (timestamp - fromTimestamp) / secondsBetweenDataPoints;

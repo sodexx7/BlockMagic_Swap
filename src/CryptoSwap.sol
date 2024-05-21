@@ -152,7 +152,7 @@ contract CryptoSwap is Ownable {
 
         // When transfer USDC to the contract, immediatly or when pairSwap?
         // TODO below logic should optimize, involved two approves and two transfers, should check
-        address yieldAddress = YieldStrategies.getYieldStrategy(yieldId);
+        // address yieldAddress = YieldStrategies.getYieldStrategy(yieldId);
         IERC20(settledStableToken).transferFrom(msg.sender, address(this), balance);
         IERC20(settledStableToken).approve(address(YieldStrategies), balance);
         uint256 shares = YieldStrategies.depositYield(yieldId, balance, address(this));
@@ -196,7 +196,7 @@ contract CryptoSwap is Ownable {
         );
 
         // TODO below logic should optimize
-        address yieldAddress = YieldStrategies.getYieldStrategy(yieldId);
+        // address yieldAddress = YieldStrategies.getYieldStrategy(yieldId);
         IERC20(settledStableToken).transferFrom(msg.sender, address(this), notionalAmount);
         IERC20(settledStableToken).approve(address(YieldStrategies), notionalAmount);
         uint256 shares = YieldStrategies.depositYield(yieldId, notionalAmount, address(this));
@@ -235,7 +235,6 @@ contract CryptoSwap is Ownable {
      *    y : the price of the pair leg's underlying at startDate
      *    y`: the price of the pair leg's underlying at fixingDate
      *    notionalAmount: the notional value of the two legs
-     *  // // *    benchSettlerAmount: the smaller settledStableTokenAmount of the two legs
      *
      *    when x`/x > y`/y, the profit is (x`*y - x*y`) * notionalAmount / (x*y)
      *    when y`/y > x`/x, the profit is (y`*x - y*x`) * notionalAmount / (x*y)
@@ -249,12 +248,6 @@ contract CryptoSwap is Ownable {
         Leg memory originalLeg = legs[legId];
         Leg memory pairLeg = legs[originalLeg.pairLegId];
         require(originalLeg.status == Status.Active && pairLeg.status == Status.Active, "The leg is not active");
-
-        // // uint256 originaSettledStableTokenAmount = originalLeg.notionalAmount;
-        // // uint256 pairSettledStableTokenAmount = originalLeg.notionalAmount;
-        // // uint256 benchSettlerAmount = originaSettledStableTokenAmount >= pairSettledStableTokenAmount
-        // //     ? originaSettledStableTokenAmount
-        // //     : pairSettledStableTokenAmount;
 
         uint256 notionalAmount = originalLeg.notionalAmount;
 
@@ -297,7 +290,7 @@ contract CryptoSwap is Ownable {
             winner = pairLeg.swaper;
         }
         // console2.log("winner:", winner);
-        uint8 usdcDecimals = ERC20(settledStableToken).decimals();
+        // uint8 usdcDecimals = ERC20(settledStableToken).decimals();
         // console2.log("profit:", profit / 10**usdcDecimals, "USDC");
 
         // TODO update bench price for the two legs
