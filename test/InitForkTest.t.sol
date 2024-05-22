@@ -63,7 +63,6 @@ contract InitForkTest is Test {
 
         // 14/05/2024 - BTC: ~62_619 USD, ETH: ~2_947 USD
         mainnetFork2 = vm.createSelectFork({ urlOrAlias: "mainnet", blockNumber: 19_865_400 }); // around today
-      
 
         // 15/03/2024 BTC: ~71_387 USD, ETH: ~3_888 USD
         //            BTC: 6806426901487 ETH:3370766673501
@@ -124,7 +123,7 @@ contract InitForkTest is Test {
         console2.log("tokenAddress:", result.tokenAddress, ERC20(result.tokenAddress).symbol());
     }
 
-    function showPriceAtBlockTime(address ethTokenAddress,address btcTokenAddress, uint256 forkVersion) internal {
+    function showPriceAtBlockTime(address ethTokenAddress, address btcTokenAddress, uint256 forkVersion) internal {
         address[] memory persistantAddresses = new address[](5);
         persistantAddresses[0] = yearnYvUSDC;
         persistantAddresses[1] = address(cryptoSwap);
@@ -137,9 +136,9 @@ contract InitForkTest is Test {
         int256 ethPrice = priceFeeds.getLatestPrice(ethTokenAddress);
         int256 btcPrice = priceFeeds.getLatestPrice(btcTokenAddress);
         uint256 blockNumer = block.number;
-        console2.log("block number",blockNumer);
-        console2.log("ethPrice",ethPrice);
-        console2.log("btcPrice",btcPrice);
+        console2.log("block number", blockNumer);
+        console2.log("ethPrice", ethPrice);
+        console2.log("btcPrice", btcPrice);
 
         // return mainnetFork
         persistantAddresses = new address[](5);
@@ -148,6 +147,6 @@ contract InitForkTest is Test {
         persistantAddresses[2] = usdcContractAddress;
         persistantAddresses[3] = address(priceFeeds);
         persistantAddresses[4] = address(yieldStrategies);
-        vm.selectFork(mainnetFork);    
+        vm.selectFork(mainnetFork);
     }
 }

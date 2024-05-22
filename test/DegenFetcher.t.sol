@@ -52,14 +52,13 @@ contract DegenFetcherTest is Test {
         // assertEq(prices[0], 61_491);
         // assertEq(prices[0], 60_983);
         /**
-            20240521
-            lhRound:  110680464442257325429 rhRound:  110680464442257325430
-            guessRound:  110680464442257325429
-            Round picked:  110680464442257325430
-            Timestamp:  1715500535
-            price:  60710
-        */
-        
+         * 20240521
+         *         lhRound:  110680464442257325429 rhRound:  110680464442257325430
+         *         guessRound:  110680464442257325429
+         *         Round picked:  110680464442257325430
+         *         Timestamp:  1715500535
+         *         price:  60710
+         */
     }
 
     function test_getHistoricalPriceSame_61_491() external {
@@ -74,15 +73,14 @@ contract DegenFetcherTest is Test {
         // assertEq(prices[0], 61_491);
         // assertEq(prices[0], 60_983);
         /**
-            20240521
-            logs:
-            lhRound:  110680464442257325442 rhRound:  110680464442257325443
-            guessRound:  110680464442257325443
-            Round picked:  110680464442257325443
-            Timestamp:  1715532947
-            price:  61484
-        */
-
+         * 20240521
+         *         logs:
+         *         lhRound:  110680464442257325442 rhRound:  110680464442257325443
+         *         guessRound:  110680464442257325443
+         *         Round picked:  110680464442257325443
+         *         Timestamp:  1715532947
+         *         price:  61484
+         */
     }
 
     function test_getHistoricalPriceSame1715532900_60_983() external {
@@ -97,14 +95,13 @@ contract DegenFetcherTest is Test {
         // assertEq(prices[0], 60_983);
 
         /**
-            20240521
-            lhRound:  110680464442257325429 rhRound:  110680464442257325430
-            guessRound:  110680464442257325429
-            Round picked:  110680464442257325430
-            Timestamp:  1715500535
-            price:  60710
-        */
-        
+         * 20240521
+         *         lhRound:  110680464442257325429 rhRound:  110680464442257325430
+         *         guessRound:  110680464442257325429
+         *         Round picked:  110680464442257325430
+         *         Timestamp:  1715500535
+         *         price:  60710
+         */
     }
 
     function test_getHistoricalPriceSame1715532900_61_491() external {
@@ -118,13 +115,13 @@ contract DegenFetcherTest is Test {
         // assertEq(prices[0], 61_491);
         // assertEq(prices[0], 60_983);
         /**
-            20240521
-            lhRound:  110680464442257325429 rhRound:  110680464442257325430
-            guessRound:  110680464442257325430
-            Round picked:  110680464442257325430
-            Timestamp:  1715500535
-            price:  60710
-        */
+         * 20240521
+         *         lhRound:  110680464442257325429 rhRound:  110680464442257325430
+         *         guessRound:  110680464442257325430
+         *         Round picked:  110680464442257325430
+         *         Timestamp:  1715500535
+         *         price:  60710
+         */
     }
 
     function test_getHistoricalPrice15032024() external {
@@ -137,15 +134,13 @@ contract DegenFetcherTest is Test {
         console2.log("price: ", price);
         // assertEq(prices[0], 42_651);
         /**
-            20240521
-              lhRound:  110680464442257319086 rhRound:  110680464442257319087
-              guessRound:  110680464442257319087
-              Round picked:  110680464442257319086
-              Timestamp:  1704066923
-              price:  42214
-        */
-
-
+         * 20240521
+         *           lhRound:  110680464442257319086 rhRound:  110680464442257319087
+         *           guessRound:  110680464442257319087
+         *           Round picked:  110680464442257319086
+         *           Timestamp:  1704066923
+         *           price:  42214
+         */
     }
 
     function test_getHistoricalPrice_02052024() external {
@@ -158,14 +153,13 @@ contract DegenFetcherTest is Test {
         console2.log("price: ", price);
         // assertEq(prices[0], 42_651);
         /**
-            20240521
-               Logs:
-                lhRound:  110680464442257319086 rhRound:  110680464442257319087
-                guessRound:  110680464442257319086
-                Round picked:  110680464442257319086
-                Timestamp:  1704066923
-                price:  42214
-        */
-
+         * 20240521
+         *            Logs:
+         *             lhRound:  110680464442257319086 rhRound:  110680464442257319087
+         *             guessRound:  110680464442257319086
+         *             Round picked:  110680464442257319086
+         *             Timestamp:  1704066923
+         *             price:  42214
+         */
     }
 }

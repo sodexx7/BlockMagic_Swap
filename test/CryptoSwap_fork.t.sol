@@ -144,7 +144,6 @@ contract CryptoSwapTestFork is InitForkTest {
         makeSettlementFromFortk(mainnetFork_15032024);
     }
 
-
     // 20/03/2024   BTC: ~61_930 USD, ETH: ~3_158 USD
     // 02/05/2024 - BTC: ~58_253 USD, ETH: ~2_969 USD
     function test_settlePairerWinForkBearishMarket() external {

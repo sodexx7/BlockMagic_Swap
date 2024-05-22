@@ -100,7 +100,7 @@ struct Period{
 
 3. `settleSwap(uint64 legId)`
 
-      1. The core logic is dealing with who wins the profit.Now shoudl add \_periodType, \_totalIntervals logic
+   1. The core logic is dealing with who wins the profit.Now shoudl add \_periodType, \_totalIntervals logic
 
 ## **Add more help functions for front-end**
 
