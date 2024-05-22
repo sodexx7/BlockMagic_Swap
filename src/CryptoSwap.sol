@@ -85,6 +85,7 @@ contract CryptoSwap is Ownable {
      * @param updateDate  When trigger the swap execute, should record the dealDate as updateDate
      */
     struct SwapDealInfo {
+        uint64 startDate;
         uint64 updateDate;
         uint32 periodInterval;
         uint8 totalIntervals;
@@ -189,20 +190,20 @@ contract CryptoSwap is Ownable {
         uint256 shares = YieldStrategies.depositYield(yieldId, balance, address(this));
         legIdShares[maxLegId] = shares;
 
+        uint64 legId;
         for (uint256 i; i < notionalCount; i++) {
-            uint64 legId = _createLeg({
+            legId = _createLeg({
                 legToken: legToken,
                 notionalAmount: notionalValueOptions[notionalId],
                 balance: int256(notionalValueOptions[notionalId]),
-                status: Status.Open,
-                startDate: _startDate,
                 pairLegId: 0,
                 benchPrice: 0,
                 yieldId: yieldId,
-                LegType: LegType.OPENER
+                legType: LegType.OPENER
             });
 
-            SwapDealInfo[legId] = SwapDealInfo({
+            swapDealInfos[legId] = SwapDealInfo({
+                startDate: _startDate,
                 updateDate: _startDate,
                 periodInterval: _periodType,
                 totalIntervals: _totalIntervals,
@@ -224,7 +225,7 @@ contract CryptoSwap is Ownable {
         require(notionalAmount == legs[originalLegId].notionalAmount, "Notional amount should pair the leg Value");
 
         Leg memory originalLeg = legs[originalLegId];
-        require(originalLeg.status == Status.Open, "The leg is not open");
+        require(swapDealInfos[originalLegId].status == Status.OPEN, "The swap is not open");
         require(originalLeg.startDate > block.timestamp, "The leg is expired");
 
         // Transfer the settledStableToken to the contract
@@ -250,13 +251,12 @@ contract CryptoSwap is Ownable {
             pairLegId: originalLegId,
             benchPrice: pairLegTokenLatestPrice,
             yieldId: yieldId,
-            LegType: LegType.OPENER
+            legType: LegType.PAIRER
         });
 
         legs[originalLegId].pairLegId = pairLegId;
-        legs[originalLegId].status = Status.Active;
 
-        SwapDealInfo[legId].status = Status.Active;
+        swapDealInfos[originalLegId].status = Status.ACTIVE;
 
         int256 originalLegPrice = priceFeeds.getLatestPrice(originalLeg.tokenAddress);
         legs[originalLegId].benchPrice = originalLegPrice;
@@ -288,10 +288,12 @@ contract CryptoSwap is Ownable {
         // 1. time check
         Leg memory originalLeg = legs[legId];
         Leg memory pairLeg = legs[originalLeg.pairLegId];
-        require(originalLeg.status == Status.Active && pairLeg.status == Status.Active, "The leg is not active");
+        uint64 openerlegId = legs[legId].legType == LegType.OPENER ? legId : originalLeg.pairLegId;
+
+        require(swapDealInfos[openerlegId].status == Status.ACTIVE, "The swap is not active");
 
         // only can be called in one period
-        SwapDealInfo memory swapDealInfo = SwapDealInfo[legId];
+        SwapDealInfo memory swapDealInfo = swapDealInfos[legId];
         require(
             block.timestamp >= swapDealInfo.updateDate
                 && block.timestamp <= swapDealInfo.updateDate + swapDealInfo.periodInterval,
@@ -300,15 +302,18 @@ contract CryptoSwap is Ownable {
 
         // compare the price change for the two legs
         uint256 profit;
+        uint64 winnerLegId;
         uint64 loserLegId = legId;
-        (profit, roundWinner, loserLegId) = calculatePerformanceForPeriod(
-            originalLeg, pairLeg, swapDealInfo.updateDate, swapDealInfo.updateDate + swapDealInfo.periodInterval
+        (profit, winnerLegId, loserLegId) = calculatePerformanceForPeriod(
+            legId, originalLeg.pairLegId, swapDealInfo.updateDate, swapDealInfo.updateDate + swapDealInfo.periodInterval
         );
         address winner = legs[loserLegId].swaper;
 
         // TODO update bench price for the two legs
-        legs[legId].benchPrice = originalLegTokenLatestPrice;
-        legs[originalLeg.pairLegId].benchPrice = pairLegTokenLatestPrice;
+        legs[legId].benchPrice =
+            priceFeeds.getHistoryPrice(originalLeg.tokenAddress, swapDealInfo.updateDate + swapDealInfo.periodInterval);
+        legs[originalLeg.pairLegId].benchPrice =
+            priceFeeds.getHistoryPrice(pairLeg.tokenAddress, swapDealInfo.updateDate + swapDealInfo.periodInterval);
 
         // IERC20(settledStableToken).transfer(winner, profit);
 
@@ -325,12 +330,11 @@ contract CryptoSwap is Ownable {
         // IERC20(settledStableToken).transfer(winner, actualProfit);
 
         // when end, the status of the two legs should be settled
-        legs[legId].status = Status.Settled;
-        legs[originalLeg.pairLegId].status = Status.Settled;
+        swapDealInfos[openerlegId].status = Status.SETTLED;
 
-        SwapDealInfo[legId].updateDate += swapDealInfo.periodInterval;
+        swapDealInfos[openerlegId].updateDate += swapDealInfo.periodInterval;
         if (swapDealInfo.updateDate == _getEndDate(legId)) {
-            SwapDealInfo[legId].status = Status.Settled;
+            swapDealInfos[openerlegId].status = Status.SETTLED;
         }
 
         // TODO , endDate, just close this swap.
@@ -356,54 +360,73 @@ contract CryptoSwap is Ownable {
      * @return totalProfit The total profit of the winner
      * @return latestDate The latest dealing date of the swap
      */
-    function queryHistoryPerformance(uint64 legId) public view returns (bool, uint64, uint64, int256, uint256) {
+    function getHistoryPerformance(uint64 legId) public view returns (bool, uint64, uint64, int256, uint256) {
         Leg memory leg = legs[legId];
         Leg memory pairLeg = legs[leg.pairLegId];
 
         // get the OPERNER TYPE leg
-        uint64 openLeg = leg.legType == LegType.OPENER ? legId : leg.pairLegId;
-        swapDealInfo memory swapDealInfo = swapDealInfos[openLeg];
+        uint64 openLegId = leg.legType == LegType.OPENER ? legId : leg.pairLegId;
+        SwapDealInfo memory swapDealInfo = swapDealInfos[openLegId];
         uint256 startDate = swapDealInfo.startDate;
         uint32 periodInterval = swapDealInfo.periodInterval;
         uint256 numberOfPeriods = (block.timestamp - startDate) / periodInterval;
         bool isBankrupt = false;
+        // TODO: Update this part
         if (numberOfPeriods == 1) {
             return (false, 0, 0, 0, 0);
         }
 
-        mapping(uint256 => uint256) predictBalances;
-        uint256 legStartBalance = legs[legId].balance;
-        uint256 pairlegStartBalance = legs[leg.pairLegId].balance;
+        int256 legStartBalance = legs[legId].balance;
+        int256 pairlegStartBalance = legs[leg.pairLegId].balance;
+        uint64 updateDate = swapDealInfos[legId].updateDate;
+        uint64 loserId;
 
-        predictBalances[legId] = legs[legId].balance;
-        predictBalances[leg.pairLegId] = legs[leg.pairLegId].balance;
+        // mapping(uint256 => uint256) memory predictBalances;
+        // predictBalances[legId] = legs[legId].balance;
+        // predictBalances[leg.pairLegId] = legs[leg.pairLegId].balance;
 
-        for (uint256 i; i < numberOfPeriods; i++) {
-            (profit, roundWinner, roundLoser) = calculatePerformanceForPeriod(
-                legA, pairLeg, updateDate + periodInterval * (i), updateDate + periodInterval * (1 + i)
+        int256 predictBalancesLeg = legs[legId].balance;
+        int256 predictBalancesLegPair = legs[leg.pairLegId].balance;
+
+        uint256 i;
+        for (i; i < numberOfPeriods; i++) {
+            (uint256 profit, uint64 roundWinner, uint64 roundLoser) = calculatePerformanceForPeriod(
+                legId, leg.pairLegId, updateDate + periodInterval * (i), updateDate + periodInterval * (1 + i)
             );
+
+            if (legId == roundWinner) {
+                predictBalancesLeg += int256(profit);
+                predictBalancesLegPair -= int256(profit);
+                // TODO: Create a helper function to avoid code duplication
+                if (predictBalancesLegPair < 0) {
+                    isBankrupt = true;
+                    break;
+                }
+            } else {
+                predictBalancesLeg -= int256(profit);
+                predictBalancesLegPair += int256(profit);
+                // TODO: Create a helper function to avoid code duplication
+                if (predictBalancesLeg < 0) {
+                    isBankrupt = true;
+                    break;
+                }
+            }
+
+            // predictBalances[roundWinner] += profit;
+            // predictBalances[roundLoser] -= profit;
+
             // if trigger the bankrupt, just return 0
-            predictBalances[roundWinner] += profit;
-            predictBalances[roundLoser] -= profit;
-            if (legsBalances[roundWinner] < 0) {
-                loserlgId = roundWinner;
-                isBankrupt = true;
-                break;
-            }
-            if (legsBalances[roundLoser] < 0) {
-                loserlgId = roundLoser;
-                isBankrupt = true;
-                break;
-            }
         }
-        uint64 winnerLegId = predictBalances[legId] > legStartBalance ? legId : leg.pairLegId;
-        uint256 totalProfit = predictBalances[winnerLegId] - legStartBalance;
+        uint64 winnerLegId = predictBalancesLeg > legStartBalance ? legId : leg.pairLegId;
+        int256 totalProfit = predictBalancesLeg > legStartBalance
+            ? predictBalancesLeg - legStartBalance
+            : predictBalancesLegPair - pairlegStartBalance;
         return
             (isBankrupt, winnerLegId, legs[winnerLegId].pairLegId, totalProfit, updateDate + periodInterval * (1 + i));
     }
 
     // todo reentrance check
-    function withdraw(uint64 legId) external {
+    function withdraw(uint64 legId) external returns (int256) {
         uint64 pairLegId = legs[legId].pairLegId;
         require(
             legs[legId].swaper == msg.sender || legs[pairLegId].swaper == msg.sender,
@@ -417,15 +440,21 @@ contract CryptoSwap is Ownable {
             return 0;
         }
 
-        IERC20(settledStableToken).transfer(legs[winnerLegId].swaper, profit);
+        // TODO: Start from here
+        // address yieldAddress = YieldStrategies.getYieldStrategy(legs[loserLegId].yieldId);
+        // uint256 shares = convertShareToUnderlyingAmount(loserLegId, profit);
+        // IERC20(yieldAddress).transfer(address(YieldStrategies), shares);
+
+        IERC20(settledStableToken).transfer(legs[winnerLegId].swaper, uint256(profit));
 
         uint64 openerleg = legs[legId].legType == LegType.OPENER ? legId : pairLegId;
-        swapDealInfos[legId].updateDate = latestDate;
+        swapDealInfos[legId].updateDate = uint64(latestDate);
         if (latestDate == _getEndDate(legId)) {
-            SwapDealInfo[legId].status = Status.Settled;
+            swapDealInfos[legId].status = Status.SETTLED;
         }
 
         // emit the withdraw event
+        return profit;
     }
 
     /**
@@ -457,7 +486,8 @@ contract CryptoSwap is Ownable {
         (int256 legAStartPrice, int256 legAEndPrice) = getPricesForPeriod(legA, startDate, endDate);
         (int256 legBStartPrice, int256 legBEndPrice) = getPricesForPeriod(legB, startDate, endDate);
 
-        uint256 notionalAmount = originalLeg.notionalAmount;
+        // Maybe use 10 ** 18
+        uint256 notionalAmount = legA.notionalAmount;
 
         if (legAEndPrice * legBStartPrice == legBEndPrice * legAStartPrice) {
             return (0, address(0), address(0));
@@ -465,27 +495,17 @@ contract CryptoSwap is Ownable {
             // Notice: For keep the precision, should multiply the notionalAmount at the end. if not, the profit will be
             // less than 0 when all leg prices are decreased
             // TODO, can apply the limit? as x1/x - y1/y+x2/x1-y2/y1+…, move the division into the last operation
-            profit = (
-                uint256(
-                    originalLegTokenLatestPrice * pairLeg.benchPrice - originalLeg.benchPrice * pairLegTokenLatestPrice
-                ) * notionalAmount
-            ) / uint256(originalLeg.benchPrice * pairLeg.benchPrice);
-            winner = legA.swaper;
-            loser = legB.swaper;
-            winnerLegId = legA.legId;
-            loserLegId = legB.legId;
+            profit = (uint256(legAEndPrice * legBStartPrice - legAStartPrice * legBEndPrice) * notionalAmount)
+                / uint256(legAStartPrice * legBStartPrice);
+            winnerLegId = legAId;
+            loserLegId = legBId;
             console2.log("winner: maker");
         } else {
-            profit = (
-                uint256(
-                    pairLegTokenLatestPrice * originalLeg.benchPrice - originalLegTokenLatestPrice * pairLeg.benchPrice
-                ) * notionalAmount
-            ) / uint256(originalLeg.benchPrice * pairLeg.benchPrice);
+            profit = (uint256(legBEndPrice * legAStartPrice - legAEndPrice * legBStartPrice) * notionalAmount)
+                / uint256(legAStartPrice * legBStartPrice);
             console2.log("winner: taker");
-            winner = legB.swaper;
-            loser = legA.swaper;
-            winnerLegId = legB.legId;
-            loserLegId = legA.legId;
+            winnerLegId = legBId;
+            loserLegId = legAId;
         }
         return (profit, winnerLegId, loserLegId);
     }
@@ -545,7 +565,7 @@ contract CryptoSwap is Ownable {
     ///////////////////////////////////////////////////////
 
     // TODO use another way to implement this
-    function _handlePeriod(periodInterval) internal returns (uint32 periodInterval) {
+    function _handlePeriod(uint8 _periodType) internal returns (uint32 periodInterval) {
         if (_periodType == 0) {
             periodInterval = 7 days;
         } else if (_periodType == 1) {
