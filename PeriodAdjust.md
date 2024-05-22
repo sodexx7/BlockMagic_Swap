@@ -36,6 +36,9 @@
    }
    ```
 
+   2.3 `// legId => SwapDealInfo  mapping(uint64 => SwapDealInfo) public swapDealInfos;` swapDealInfos keep the
+   relationships between OPENER leg and the SwapDealInfo
+
 3. Functions rebuild
 
    1. ` function getPricesForPeriod(     uint64 legId,     uint256 startDate,     uint256 endDate )` , return token's
