@@ -63,7 +63,7 @@ contract CryptoSwapTestFork is InitForkTest {
         emit BatchOpenSwap(swaper, ethTokenAddress, legIds, swaperUsdcAmount, notionalCount, startDate);
         cryptoSwap.openSwap({
             notionalId: 4,
-            notionalCount: 1,
+            notionalCount: 5,
             legToken: ethTokenAddress,
             _startDate: uint64(startDate),
             _periodType: CryptoSwap.PeriodInterval.MONTHLY,

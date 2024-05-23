@@ -284,6 +284,12 @@ contract CryptoSwap is Ownable {
      *    if y`/y > x`/x
      *    (y`/y - x`/x) * notionalAmount => (y`*x - y*x`) / y*x*notionalAmount => (y`*x - y*x`) * notionalAmount / (x*y)
      */
+    // TODO: Add information if someone is bankrupt
+    // TODO: Not use this function for the moment as the function is not completed
+    // TODO: Also need to create an helper function to call settleSwap or getHistoryPerformance
+    // TODO: Depeneding of the situation
+    // TODO: For the moment, use only withdraw (getHistoryPerformance)
+    // function settleSwap(uint64 legId) private {
     function settleSwap(uint64 legId) external {
         // TODO more conditions check
         // 1. time check
@@ -296,8 +302,8 @@ contract CryptoSwap is Ownable {
         // only can be called in one period
         SwapDealInfo memory swapDealInfo = swapDealInfos[legId];
         require(
-            block.timestamp >= swapDealInfo.updateDate
-                && block.timestamp <= swapDealInfo.updateDate + swapDealInfo.periodInterval,
+            // block.timestamp >= swapDealInfo.updateDate + swapDealInfo.periodInterval,
+            block.timestamp >= _getEndDate(legId),
             "The swap can only be settled in one period"
         );
 
@@ -330,10 +336,8 @@ contract CryptoSwap is Ownable {
 
         // IERC20(settledStableToken).transfer(winner, actualProfit);
 
-        // when end, the status of the two legs should be settled
-        swapDealInfos[openerlegId].status = Status.SETTLED;
-
         swapDealInfos[openerlegId].updateDate += swapDealInfo.periodInterval;
+        // when end, the status of the two legs should be settled
         if (swapDealInfo.updateDate == _getEndDate(legId)) {
             swapDealInfos[openerlegId].status = Status.SETTLED;
         }
@@ -436,6 +440,8 @@ contract CryptoSwap is Ownable {
 
         (bool isBankrupt, uint64 winnerLegId, uint64 loserlegId, int256 profit, uint256 latestDate) =
             getHistoryPerformance(legId);
+
+        // TODO: Add logic based on bankrupt
         if (isBankrupt && legs[loserlegId].swaper == msg.sender) {
             // add emit the user have been bankrupt
             return 0;
