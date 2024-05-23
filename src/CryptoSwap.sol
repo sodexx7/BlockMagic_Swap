@@ -73,7 +73,6 @@ contract CryptoSwap is Ownable {
         uint8 yieldId;
         int256 balance;
         int256 benchPrice;
-        uint64 startDate;
         /// @dev 0: not taken (open status), pairLegId>1: taken (active status)
         uint64 pairLegId;
         LegType legType;
@@ -225,8 +224,10 @@ contract CryptoSwap is Ownable {
         require(notionalAmount == legs[originalLegId].notionalAmount, "Notional amount should pair the leg Value");
 
         Leg memory originalLeg = legs[originalLegId];
-        require(swapDealInfos[originalLegId].status == Status.OPEN, "The swap is not open");
-        require(originalLeg.startDate > block.timestamp, "The leg is expired");
+        SwapDealInfo memory swapDealInfo = swapDealInfos[originalLegId];
+
+        require(swapDealInfo.status == Status.OPEN, "The swap is not open");
+        require(swapDealInfo.startDate > block.timestamp, "The leg is expired");
 
         // Transfer the settledStableToken to the contract
         require(
@@ -490,7 +491,7 @@ contract CryptoSwap is Ownable {
         uint256 notionalAmount = legA.notionalAmount;
 
         if (legAEndPrice * legBStartPrice == legBEndPrice * legAStartPrice) {
-            return (0, address(0), address(0));
+            return (0, 0, 0);
         } else if (legAEndPrice * legBStartPrice > legBEndPrice * legAStartPrice) {
             // Notice: For keep the precision, should multiply the notionalAmount at the end. if not, the profit will be
             // less than 0 when all leg prices are decreased
@@ -530,7 +531,7 @@ contract CryptoSwap is Ownable {
             balance: balance,
             pairLegId: pairLegId, // Status.Open also means the pairLegId is 0
             benchPrice: benchPrice, // TODO more check(store need to compare with the deposited USDC) BenchPrice is
-            LegType: legType
+            legType: legType
         });
         // updatated on
         // the startDate
@@ -541,7 +542,7 @@ contract CryptoSwap is Ownable {
 
     /// legA.tokenAddress is ledA.feedId
     function getPricesForPeriod(
-        uint64 legId,
+        Leg memory leg,
         uint256 startDate,
         uint256 endDate
     )
@@ -549,7 +550,7 @@ contract CryptoSwap is Ownable {
         view
         returns (int256, int256)
     {
-        address legToken = legs[legId].tokenAddress;
+        address legToken = leg.tokenAddress;
         int256 startPrice = priceFeeds.getHistoryPrice(legToken, startDate);
         int256 endPrice = priceFeeds.getHistoryPrice(legToken, endDate);
 
@@ -577,9 +578,10 @@ contract CryptoSwap is Ownable {
         }
     }
 
+    // TODO: Use _handlePeriod(swapDealInfo.periodInterval) instead
     function _getEndDate(uint64 legId) internal view returns (uint64) {
         SwapDealInfo memory swapDealInfo = swapDealInfos[legId];
-        return swapDealInfo.startDate + _handlePeriod(swapDealInfo.periodInterval) * swapDealInfo.totalIntervals;
+        return swapDealInfo.startDate + swapDealInfo.periodInterval * swapDealInfo.totalIntervals;
     }
 
     // TODO ,temp function should consider move to YieldStrategies contract. Are there problems related with applying
