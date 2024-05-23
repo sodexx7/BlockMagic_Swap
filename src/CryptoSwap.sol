@@ -165,7 +165,7 @@ contract CryptoSwap is Ownable {
         uint8 notionalCount,
         address legToken,
         uint64 _startDate,
-        uint8 _periodType,
+        PeriodInterval _periodType,
         uint8 _totalIntervals,
         uint8 yieldId
     )
@@ -173,7 +173,7 @@ contract CryptoSwap is Ownable {
     {
         require(notionalId >= 1, "The notionalId should be greater than 0");
         require(_startDate > block.timestamp, "_startDate should be greater than now"); // TODO change to custom error
-        require(_periodType <= 3, "Invalid period type");
+        // require(_periodType <= 3, "Invalid period type");
 
         uint256 balance = notionalValueOptions[notionalId] * notionalCount;
         require(
@@ -204,7 +204,7 @@ contract CryptoSwap is Ownable {
             swapDealInfos[legId] = SwapDealInfo({
                 startDate: _startDate,
                 updateDate: _startDate,
-                periodInterval: _periodType,
+                periodInterval: _handlePeriod(_periodType),
                 totalIntervals: _totalIntervals,
                 status: Status.OPEN
             });
@@ -566,16 +566,17 @@ contract CryptoSwap is Ownable {
     ///////////////////////////////////////////////////////
 
     // TODO use another way to implement this
-    function _handlePeriod(uint8 _periodType) internal returns (uint32 periodInterval) {
-        if (_periodType == 0) {
+    function _handlePeriod(PeriodInterval _periodType) internal pure returns (uint32 periodInterval) {
+        if (_periodType == PeriodInterval.WEEKLY) {
             periodInterval = 7 days;
-        } else if (_periodType == 1) {
+        } else if (_periodType == PeriodInterval.MONTHLY) {
             periodInterval = 30 days;
-        } else if (_periodType == 2) {
+        } else if (_periodType == PeriodInterval.QUARTERLY) {
             periodInterval = 90 days;
         } else {
             periodInterval = 365 days;
         }
+        return periodInterval;
     }
 
     // TODO: Use _handlePeriod(swapDealInfo.periodInterval) instead

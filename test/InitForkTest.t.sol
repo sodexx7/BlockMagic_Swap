@@ -117,8 +117,8 @@ contract InitForkTest is Test {
         );
         console2.log("balance:", uint256(result.balance) / 10 ** usdcContract.decimals(), usdcContract.symbol());
         console2.log("pairLegId:", result.pairLegId);
-        console2.log("startDate:", result.startDate);
-        console2.log("status:", uint256(result.status));
+        // console2.log("startDate:", result.startDate);
+        // console2.log("status:", uint256(result.status));
         console2.log("swaper:", result.swaper);
         console2.log("tokenAddress:", result.tokenAddress, ERC20(result.tokenAddress).symbol());
     }
