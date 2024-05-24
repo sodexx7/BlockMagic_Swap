@@ -11,6 +11,7 @@
 
    ```
        struct SwapDealInfo {
+       uint64 startDate;
        uint64 updateDate;
        uint32 periodInterval;
        uint8 totalIntervals;
@@ -29,7 +30,6 @@
        uint8 yieldId;
        int256 balance;
        int256 benchPrice;
-       uint64 startDate;
        /// @dev 0: not taken (open status), pairLegId>1: taken (active status)
        uint64 pairLegId;
        LegType legType;
@@ -61,3 +61,13 @@
    1. `calculatePerformanceForPeriod` can specify any two leg in any time, even the two legs are not paired.
 
 6. todo which functions should added for show more info in front-end?
+
+   1. add user's legs balance like below
+
+   ```
+      uint256 balance = cryptoSwap.legBalance(swaper);
+      for (uint8 i = 0; i < balance; i++) {
+         uint64 legId = cryptoSwap.legOfOwnerByIndex(swaper, i);
+         CryptoSwap.Leg memory leg = cryptoSwap.queryLeg(legId);
+      }
+   ```

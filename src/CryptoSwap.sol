@@ -107,6 +107,11 @@ contract CryptoSwap is Ownable {
     // legId => SwapDealInfo
     mapping(uint64 => SwapDealInfo) public swapDealInfos;
 
+    // if want make leg can be transfer, can refer to the ERC721Eumerable.sol
+    mapping(address owner => mapping(uint256 index => uint64)) private _ownedLegs;
+    mapping(address owner => uint256) private _legsBalances;
+
+
     event OpenSwap(
         uint64 indexed legId,
         address indexed swaper,
@@ -153,6 +158,23 @@ contract CryptoSwap is Ownable {
         for (uint8 i; i < notionalIds.length; i++) {
             notionalValueOptions[notionalIds[i]] = notionalValues[i];
         }
+    }
+
+    // TODO init problem?
+    function totalSupply() public view virtual returns (uint64) {
+        return maxLegId;
+    }
+
+    function legBalance(address owner) public view returns (uint256) {
+        return _legsBalances[owner];
+    }
+
+    /**
+     * @dev Returns a leg ID owned by `owner` at a given `index` of its leg list.
+     * Use along with {balanceOf} to enumerate all of ``owner``'s legs.
+     */
+     function legOfOwnerByIndex(address owner, uint256 index) public view returns (uint64) {
+        return _ownedLegs[owner][index];
     }
 
     // TODO: When open the swap, should grant the contract can use the legToken along with the notional
@@ -539,10 +561,13 @@ contract CryptoSwap is Ownable {
             benchPrice: benchPrice, // TODO more check(store need to compare with the deposited USDC) BenchPrice is
             legType: legType
         });
-        // updatated on
-        // the startDate
-
+        // updatated on the startDate
+        
         legs[maxLegId] = leg;
+        uint256 length = legBalance(msg.sender);
+        _ownedLegs[msg.sender][length] = maxLegId;
+        _legsBalances[msg.sender] += 1;
+        
         return maxLegId++;
     }
 
