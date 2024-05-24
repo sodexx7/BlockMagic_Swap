@@ -72,13 +72,25 @@
       }
    ```
 
-7. Test cases doing
+20240524
 
-```
- /**
-     * Test cases:
-     *     1. typicail call withdrawRouter, settleSwap,withdraw in first period
-     *     2. First period not called, then will call withdraw
-     *     3. check in different periods, the results is right
-     */
-```
+1.  test todo
+
+    1. When user open many legs, how to dea with the relationships between leg and shares
+    2. pariLegConfigs add
+    3. test bankrupt
+    4. test case should add 1: add the relatd legInfo 2: add SwapDealInfo 3: make sure all related data is correct.
+    5. check in different periods, the profit is right
+    6. opener or pairer call same leg
+
+2.  logic shouold add
+
+    1. expand bankrupt logic
+    2. Expired Status
+
+3.  Some explain
+    1. updateDate usage
+       1. begin as stratData
+       2. When user call settleSwap or withdraw, will update as the closet period. The following withdraw or settleswap
+          will be based on the new updateDate.
+       3. when call settleswap, should check user's time is the latest period, use updateDate to check

@@ -128,6 +128,8 @@ contract CryptoSwap is Ownable {
 
     // event, who win the swap, how much profit
     // event, the latest notional of the swaper and pairer after the settleSwap
+    // event, the bankrupt event, if the loser is bankrupt, should emit the event
+    // event, the withdraw event, the user withdraw the profit
 
     // TODO check Ownable(msg.sender)
     constructor(
@@ -153,9 +155,8 @@ contract CryptoSwap is Ownable {
         }
     }
 
-    // TODO init problem?
     function totalSupply() public view virtual returns (uint64) {
-        return maxLegId;
+        return maxLegId-1;
     }
 
     function legBalance(address owner) public view returns (uint256) {
@@ -171,7 +172,6 @@ contract CryptoSwap is Ownable {
     }
 
     // TODO: When open the swap, should grant the contract can use the legToken along with the notional
-    // TODO: more conditions check, such as user should have enough token to open the swap
     // TODO: For the legToken, should supply options for user's selection. (NOW, BTC, ETH, USDC)
     // TODO: TYPE? Deposited stable coin or directly apply legToken.(Now only support Deposited stable coin)
     // TODO: Maybe need to use wETH instead of ETH directly to apply yield
@@ -188,7 +188,6 @@ contract CryptoSwap is Ownable {
     {
         require(notionalId >= 1, "The notionalId should be greater than 0");
         require(_startDate > block.timestamp, "_startDate should be greater than now"); // TODO change to custom error
-        // require(_periodType <= 3, "Invalid period type");
 
         uint256 balance = notionalValueOptions[notionalId] * notionalCount;
         require(
@@ -196,9 +195,8 @@ contract CryptoSwap is Ownable {
             "The user should have grant enough settleStable token to open the swap"
         );
 
-        // When transfer USDC to the contract, immediatly or when pairSwap?
+        // When user openSwap, directly transfer the corresponding USDC to the contract
         // TODO below logic should optimize, involved two approves and two transfers, should check
-        // address yieldAddress = YieldStrategies.getYieldStrategy(yieldId);
         IERC20(settledStableToken).transferFrom(msg.sender, address(this), balance);
         IERC20(settledStableToken).approve(address(YieldStrategies), balance);
         uint256 shares = YieldStrategies.depositYield(yieldId, balance, address(this));
@@ -252,7 +250,6 @@ contract CryptoSwap is Ownable {
         );
 
         // TODO below logic should optimize
-        // address yieldAddress = YieldStrategies.getYieldStrategy(yieldId);
         IERC20(settledStableToken).transferFrom(msg.sender, address(this), notionalAmount);
         IERC20(settledStableToken).approve(address(YieldStrategies), notionalAmount);
         uint256 shares = YieldStrategies.depositYield(yieldId, notionalAmount, address(this));
@@ -281,7 +278,7 @@ contract CryptoSwap is Ownable {
         emit PairSwap(originalLegId, pairLegId, msg.sender);
     }
 
-    // TODO test
+    // TODO should test different scenarios
     // When user withdraw, should default call this function
     function withdrawRouter(uint64 legId) external onlyOpenerOrPairer(legId) {
         // if last period has been dealed, just continue to settleSwap
@@ -295,7 +292,6 @@ contract CryptoSwap is Ownable {
     }
 
     // This function was called by chainlink or by the user
-    // TODO Use historical price instead
     // From the traditonal finance perspective, the swap should be settled at the end of the period, meanwhile this
     // function can be called by the chianlink automation
     /**
@@ -328,9 +324,7 @@ contract CryptoSwap is Ownable {
 
         require(swapDealInfos[openerlegId].status == Status.ACTIVE, "The swap is not active");
 
-        // only can be called in one period
-        // TODO, check updateData must be the last period
-        // TOOD should test below case
+        // only can be called in one period based on current timestamp
         SwapDealInfo memory swapDealInfo = swapDealInfos[legId];
         require(
             _calculateLastUpdateBasedNow(swapDealInfo) == swapDealInfo.updateDate,
