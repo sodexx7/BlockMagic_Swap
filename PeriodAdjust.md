@@ -82,6 +82,7 @@
     4. test case should add 1: add the relatd legInfo 2: add SwapDealInfo 3: make sure all related data is correct.
     5. check in different periods, the profit is right
     6. opener or pairer call same leg
+    7. Fork test should adjust fork time to make it work again
 
 2.  logic shouold add
 
