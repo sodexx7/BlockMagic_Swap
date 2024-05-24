@@ -179,15 +179,17 @@ contract CryptoSwapTestFork is InitForkTest {
         cryptoSwap.settleSwap(1);
     }
 
-    function test_settlePairerWinForkBullishMarket() external {
-        makeSettlementFromFortk(mainnetFork_15032024);
-    }
+    // TODO, should select another fork which time greater than main fork
+    // function test_settlePairerWinForkBullishMarket() external {
+    //     makeSettlementFromFortk(mainnetFork_15032024);
+    // }
 
     // 20/03/2024   BTC: ~61_930 USD, ETH: ~3_158 USD
     // 02/05/2024 - BTC: ~58_253 USD, ETH: ~2_969 USD
-    function test_settlePairerWinForkBearishMarket() external {
-        makeSettlementFromFortk(mainnetFork_02052024);
-    }
+    // TODO, should select another fork which time greater than main fork
+    // function test_settlePairerWinForkBearishMarket() external {
+    //     makeSettlementFromFortk(mainnetFork_02052024);
+    // }
 
     // 20/03/2024 BTC: ~61_930 USD, ETH: ~3_158 USD
     // 15/03/2024 BTC: ~71_387 USD, ETH: ~3_888 USD
@@ -209,7 +211,7 @@ contract CryptoSwapTestFork is InitForkTest {
             notionalCount: 1,
             legToken: ethTokenAddress,
             _startDate: uint64(startDate),
-            _periodType: CryptoSwap.PeriodInterval.MONTHLY,
+            _periodType: CryptoSwap.PeriodInterval.WEEKLY,
             _totalIntervals: 1,
             yieldId: yieldIds[0]
         }); // yieldId yearn
@@ -247,8 +249,9 @@ contract CryptoSwapTestFork is InitForkTest {
         uint256 cryptoSwapUsdcAmountBefore = usdcContract.balanceOf(address(cryptoSwap));
         uint256 swaperUsdcAmountBefore = usdcContract.balanceOf(swaper);
         uint256 pairerUsdcAmountBefore = usdcContract.balanceOf(pairer);
-        console2.log("Settle the swap");
-        cryptoSwap.settleSwap(1);
+        console2.log("Settle the swap by withdraw");
+        vm.prank(pairer);
+        cryptoSwap.withdraw(originalLegId);
         printAfterSettlement(
             swaper,
             pairer,
@@ -259,6 +262,7 @@ contract CryptoSwapTestFork is InitForkTest {
             openerLeg,
             pairLeg
         );
+        //TODO shoul check the result
     }
 
     function printAfterSettlement(

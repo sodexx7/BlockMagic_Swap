@@ -10,6 +10,7 @@ import { YieldStrategies } from "../src/YieldStrategies.sol";
 import "../src/test/mocks/MockV3Aggregator.sol";
 import "../src/test/mocks/MockERC20.sol";
 import "../src/test/mocks/MockyvUSDC.sol";
+import "../src/test/mocks/MockPriceFeeds.sol";
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -26,10 +27,12 @@ contract CryptoSwapTest is Test {
     MockyvUSDC internal yvUSDCContract;
     address internal yvUSDCContractAddress;
 
-    PriceFeeds internal priceFeeds;
+    MockPriceFeeds internal priceFeeds;
     YieldStrategies internal yieldStrategies;
 
     uint8[] yieldIds;
+    int256 ETHInitialPrice = 1000e8;
+    int256 BTCInitialPrice = 60_000e8;
 
     event NoProfitWhileSettle(uint256 indexed legId, address indexed swaper, address indexed pairer);
     event BatchOpenSwap(
@@ -48,16 +51,20 @@ contract CryptoSwapTest is Test {
     function setUp() public virtual {
         // default caller: 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496, the ower of cryptoSwap,USDC
         // priceFeed for ETH/USD, BTC/USD, mock USDC, ETH, BTC
-        ethPriceFeedAddress = mockPriceFeed("ETH/USD", 1000e8); //ETH
-        btcPriceFeedAddress = mockPriceFeed("BTC/USD", 60_000e8); //BTC
+        ethPriceFeedAddress = mockPriceFeed("ETH/USD", ETHInitialPrice); //ETH
+        btcPriceFeedAddress = mockPriceFeed("BTC/USD", BTCInitialPrice); //BTC
         usdcContract = new MockERC20("USDC", "USDC", 6); // USDC default value on arb is 6
         ethTokenAddress = address(new MockERC20("ETH", "ETH", 18));
         btcTokenAddress = address(new MockERC20("WBTC", "WBTC", 8)); // WBTC default value on arb is 8
         yvUSDCContract = new MockyvUSDC("YvUSDC", "YvUSDC", 6, address(usdcContract)); // mock yearn yvUSDC
 
         // create priceFeeds contract TODO ownership transfer
-        priceFeeds = new PriceFeeds(ethTokenAddress, ethPriceFeedAddress);
+        priceFeeds = new MockPriceFeeds(ethTokenAddress, ethPriceFeedAddress);
         priceFeeds.addPriceFeed(btcTokenAddress, btcPriceFeedAddress);
+
+        // Mock history price
+        setHistoryPriceForTest(ethTokenAddress, block.timestamp, 1000e8); //ETH
+        setHistoryPriceForTest(btcTokenAddress, block.timestamp, 60_000e8); //BTC
 
         // create YieldStrategies contract
         yieldIds = new uint8[](1);
@@ -149,7 +156,7 @@ contract CryptoSwapTest is Test {
         vm.stopPrank();
 
         uint256 balance = cryptoSwap.legBalance(swaper);
-        assertEq(balance,notionalCount);
+        assertEq(balance, notionalCount);
         console2.log("balance", balance);
         for (uint8 i = 0; i < balance; i++) {
             uint64 legId = cryptoSwap.legOfOwnerByIndex(swaper, i);
@@ -161,7 +168,6 @@ contract CryptoSwapTest is Test {
             // assertEq(uint256(result.status), uint256(CryptoSwap.Status.Open));
             assertEq(result.swaper, swaper);
             assertEq(result.tokenAddress, ethTokenAddress);
-
         }
     }
 
@@ -219,6 +225,11 @@ contract CryptoSwapTest is Test {
     function test_settleEqual() external {
         ///  opener  ///
         uint256 startDate = block.timestamp + 1 days;
+
+        // set the price for ETH/USD, BTC/USD in StartDate
+        setHistoryPriceForTest(ethTokenAddress, startDate, ETHInitialPrice); //ETH
+        setHistoryPriceForTest(btcTokenAddress, startDate, BTCInitialPrice); //BTC
+
         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
         mintTestUSDC(swaper, swaperUsdcAmount);
 
@@ -249,8 +260,15 @@ contract CryptoSwapTest is Test {
         vm.stopPrank();
         ///  pairer  ///
 
-        vm.warp(startDate + 30 days);
-        // price for ETH/USD, BTC/USD hasn't  changed
+        vm.warp(startDate + 35 days);
+
+        // price for ETH/USD, BTC/USD hasn't changed
+        // set the price for ETH/USD, BTC/USD in first fixDate
+        uint256 updateDateForPrice = getUpdateDateBySwapDeanInfo(cryptoSwap.querySwapDealInfo(1));
+        console2.log("updateDateForPrice", updateDateForPrice);
+        setHistoryPriceForTest(ethTokenAddress, updateDateForPrice, ETHInitialPrice); //ETH
+        setHistoryPriceForTest(btcTokenAddress, updateDateForPrice, BTCInitialPrice); //BTC
+
         vm.expectEmit(true, true, true, true);
         emit NoProfitWhileSettle(1, swaper, pairer);
         cryptoSwap.settleSwap(1);
@@ -259,6 +277,10 @@ contract CryptoSwapTest is Test {
     function test_settleOpenerWin() external {
         ///  opener  ///
         uint256 startDate = block.timestamp + 1 days;
+        // set the price for ETH/USD, BTC/USD in StartDate
+        setHistoryPriceForTest(ethTokenAddress, startDate, ETHInitialPrice); //ETH 1000e8
+        setHistoryPriceForTest(btcTokenAddress, startDate, BTCInitialPrice); //BTC 60_000e8
+
         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
         mintTestUSDC(swaper, swaperUsdcAmount);
 
@@ -291,8 +313,15 @@ contract CryptoSwapTest is Test {
 
         vm.warp(startDate + 30 days);
         // the increased price of the eth > btc
-        mockupdatePriceFeed("ETH/USD", 1500e8); // 1000e8 => 1500e8
-        mockupdatePriceFeed("BTC/USD", 60_000e8); // doesn't change
+        // mockupdatePriceFeed("ETH/USD", 1500e8); // 1000e8 => 1500e8
+        // mockupdatePriceFeed("BTC/USD", 60_000e8); // doesn't change
+
+        // price for ETH/USD increased, BTC/USD keep same
+        // set the price for ETH/USD, BTC/USD in first fixDate
+        uint256 updateDateForPrice = getUpdateDateBySwapDeanInfo(cryptoSwap.querySwapDealInfo(1));
+        console2.log("updateDateForPrice", updateDateForPrice);
+        setHistoryPriceForTest(ethTokenAddress, updateDateForPrice, ETHInitialPrice + 500e8); //ETH
+        setHistoryPriceForTest(btcTokenAddress, updateDateForPrice, BTCInitialPrice); //BTC
 
         uint256 cryptoSwapUsdcAmountBefore = usdcContract.balanceOf(address(cryptoSwap));
         uint256 swaperUsdcAmountBefore = usdcContract.balanceOf(swaper);
@@ -308,6 +337,9 @@ contract CryptoSwapTest is Test {
     function test_settlePairerWin() external {
         ///  opener  ///
         uint256 startDate = block.timestamp + 1 days;
+        // set the price for ETH/USD, BTC/USD in StartDate
+        setHistoryPriceForTest(ethTokenAddress, startDate, ETHInitialPrice); //ETH 1000e8
+        setHistoryPriceForTest(btcTokenAddress, startDate, BTCInitialPrice); //BTC 60_000e8
         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
         mintTestUSDC(swaper, swaperUsdcAmount);
 
@@ -342,8 +374,15 @@ contract CryptoSwapTest is Test {
         // after 30 days
         vm.warp(startDate + 30 days);
         // the increased price of the eth > btc
-        mockupdatePriceFeed("ETH/USD", 1000e8); // price doesn't change
-        mockupdatePriceFeed("BTC/USD", 60_300e8); // 60_000e8 => 60_300e8
+        // mockupdatePriceFeed("ETH/USD", 1000e8); // price doesn't change
+        // mockupdatePriceFeed("BTC/USD", 60_300e8); // 60_000e8 => 60_300e8
+
+        // price for ETH/USD keep same, BTC/USD increase
+        // set the price for ETH/USD, BTC/USD in first fixDate
+        uint256 updateDateForPrice = getUpdateDateBySwapDeanInfo(cryptoSwap.querySwapDealInfo(1));
+        console2.log("updateDateForPrice", updateDateForPrice);
+        setHistoryPriceForTest(ethTokenAddress, updateDateForPrice, ETHInitialPrice); //ETH
+        setHistoryPriceForTest(btcTokenAddress, updateDateForPrice, BTCInitialPrice + 300e8); //BTC
 
         uint256 cryptoSwapUsdcAmountBefore = usdcContract.balanceOf(address(cryptoSwap));
         uint256 pairerUsdcAmountBefore = usdcContract.balanceOf(pairer);
@@ -378,12 +417,17 @@ contract CryptoSwapTest is Test {
     // 2.3. updating opener: 1 BTC, actual value: 10,500; pairer: 4,750 USDC
     // */
     function test_SettleCase1() external {
-        mockupdatePriceFeed("ETH/USD", 1000e8);
-        mockupdatePriceFeed("BTC/USD", 10_000e8);
+        // mockupdatePriceFeed("ETH/USD", 1000e8);
+        // mockupdatePriceFeed("BTC/USD", 10_000e8);
         console2.log("case 1");
         ///  opener  ///
         console2.log("opener");
         uint256 startDate = block.timestamp + 1 days;
+
+        // set the price for ETH/USD, BTC/USD in StartDate
+        setHistoryPriceForTest(ethTokenAddress, startDate, 1000e8); //ETH 1000e8
+        setHistoryPriceForTest(btcTokenAddress, startDate, 10_000e8); //BTC 60_000e8
+
         uint256 swaperUsdcAmount = cryptoSwap.notionalValueOptions(4); // 10_000e6 10,000 USDC
         mintTestUSDC(swaper, swaperUsdcAmount);
 
@@ -414,21 +458,29 @@ contract CryptoSwapTest is Test {
         ///  pairer  ///
 
         console2.log("mock the price feed");
-        mockupdatePriceFeed("BTC/USD", 10_500e8); // BTC increase: 5%. Now BTC market value: 10,500
+        // mockupdatePriceFeed("BTC/USD", 10_500e8); // BTC increase: 5%. Now BTC market value: 10,500
 
+        // set the price for ETH/USD, BTC/USD in first fixDate
+        CryptoSwap.SwapDealInfo memory swapDealInfo = cryptoSwap.querySwapDealInfo(1);
+        vm.warp(startDate + swapDealInfo.periodInterval);
+        uint256 updateDateForPrice = getUpdateDateBySwapDeanInfo(swapDealInfo);
+        console2.log("updateDateForPrice", updateDateForPrice);
+        setHistoryPriceForTest(ethTokenAddress, updateDateForPrice, 1000e8); //ETH
+        setHistoryPriceForTest(btcTokenAddress, updateDateForPrice, 10_500e8); //BTC increase: 5%. Now BTC market value:
+            // 10,500
         console2.log("Get cryptoSwapUsdcAmountBefore");
         uint256 cryptoSwapUsdcAmountBefore = usdcContract.balanceOf(address(cryptoSwap));
         console2.log("Get swaperrUsdcAmountBefore");
         uint256 swaperUsdcAmountBefore = usdcContract.balanceOf(swaper);
         console2.log("Settle the swap");
+
         cryptoSwap.settleSwap(1);
         console2.log("Get swaperUsdcAmountAfter");
         uint256 swaperUsdcAmountAfter = usdcContract.balanceOf(swaper);
         console2.log("Get cryptoSwapUsdcAmountAfter");
         uint256 cryptoSwapUsdcAmountAfter = usdcContract.balanceOf(address(cryptoSwap));
 
-        console2.log("swaperrUsdcAmountBefore", swaperUsdcAmountBefore / 10 ** ERC20(usdcContract).decimals(),
-"USDC");
+        console2.log("swaperrUsdcAmountBefore", swaperUsdcAmountBefore / 10 ** ERC20(usdcContract).decimals(), "USDC");
         console2.log("swaperUsdcAmountAfter", swaperUsdcAmountAfter / 10 ** ERC20(usdcContract).decimals(), "USDC");
         console2.log(
             "cryptoSwapUsdcAmountBefore", cryptoSwapUsdcAmountBefore / 10 ** ERC20(usdcContract).decimals(), "USDC"
@@ -657,5 +709,25 @@ contract CryptoSwapTest is Test {
         vm.startPrank(address(0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496));
         usdcContract.mint(receiver, amount);
         vm.stopPrank();
+    }
+
+    function setHistoryPriceForTest(address tokenAddress, uint256 timestamp, int256 price) internal {
+        // console2.log("setHistoryPriceForTest,tokenAddress",tokenAddress);
+        // console2.log("price:",uint256(price));
+        // console2.log("timstamp:",timestamp);
+        priceFeeds.setHistoryPrice(tokenAddress, timestamp, price);
+    }
+
+    function getUpdateDateBySwapDeanInfo(CryptoSwap.SwapDealInfo memory swapDealInfo)
+        internal
+        returns (uint256 timestamp)
+    {
+        console2.log("block.timestamp", block.timestamp);
+        console2.log("swapDealInfo.startDate", swapDealInfo.startDate);
+        console2.log("swapDealInfo.periodInterval", swapDealInfo.periodInterval);
+
+        uint256 thPeriods = (block.timestamp - swapDealInfo.startDate) / swapDealInfo.periodInterval;
+        timestamp = swapDealInfo.startDate + swapDealInfo.periodInterval * thPeriods;
+        console2.log("updateDate", timestamp);
     }
 }
