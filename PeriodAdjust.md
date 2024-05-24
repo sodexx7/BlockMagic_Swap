@@ -62,7 +62,7 @@
 
 6. todo which functions should added for show more info in front-end?
 
-   1. add user's legs balance like below
+   1. added user's legs balance like below
 
    ```
       uint256 balance = cryptoSwap.legBalance(swaper);
@@ -76,7 +76,7 @@
 
 1.  test todo
 
-    1. When user open many legs, how to dea with the relationships between leg and shares
+    1. When user open many legs each time, how to dea with the relationships between leg and shares
     2. pariLegConfigs add
     3. test bankrupt
     4. test case should add 1: add the relatd legInfo 2: add SwapDealInfo 3: make sure all related data is correct.
