@@ -176,6 +176,7 @@ contract CryptoSwapTestFork is InitForkTest {
         // price for ETH/USD, BTC/USD hasn't  changed
         vm.expectEmit(true, true, true, true);
         emit NoProfitWhileSettle(1, swaper, pairer);
+        vm.prank(swaper);
         cryptoSwap.settleSwap(1);
     }
 

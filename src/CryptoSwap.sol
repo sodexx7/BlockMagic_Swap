@@ -51,20 +51,6 @@ contract CryptoSwap is Ownable {
      * @param pairLegId The pair leg id
      *
      */
-    // struct Leg {
-    //     address swaper;
-    //     address tokenAddress;
-    //     uint256 notionalAmount;
-    //     // uint256 settledStableTokenAmount;
-    //     uint8 yieldId;
-    //     int256 balance;
-    //     int256 benchPrice;
-    //     uint64 startDate;
-    //     /// @dev 0: not taken (open status), pairLegId>1: taken (active status)
-    //     uint64 pairLegId;
-    //     Status status;
-    // }
-
     struct Leg {
         address swaper;
         address tokenAddress;
@@ -131,6 +117,14 @@ contract CryptoSwap is Ownable {
     // TODO more PairSwap event cases
     event SettleSwap(uint256 indexed legId, address indexed winner, address payToken, uint256 profit);
     event NoProfitWhileSettle(uint256 indexed legId, address indexed swaper, address indexed pairer);
+
+    modifier onlyOpenerOrPairer(uint64 legId) {
+        require(
+            legs[legId].swaper == msg.sender || legs[legs[legId].pairLegId].swaper == msg.sender,
+            "caller must be opener or pairer"
+        );
+        _;
+    }
 
     // event, who win the swap, how much profit
     // event, the latest notional of the swaper and pairer after the settleSwap
@@ -287,6 +281,19 @@ contract CryptoSwap is Ownable {
         emit PairSwap(originalLegId, pairLegId, msg.sender);
     }
 
+    // TODO test
+    // When user withdraw, should default call this function
+    function withdrawRouter(uint64 legId) external onlyOpenerOrPairer(legId) {
+        // if last period has been dealed, just continue to settleSwap
+        // if last period has not been dealed, just withdraw(let user withdraw all history profit)
+        SwapDealInfo memory swapDealInfo = swapDealInfos[legId];
+        if (_calculateLastUpdateBasedNow(swapDealInfo) == swapDealInfo.updateDate) {
+            settleSwap(legId);
+        } else {
+            withdraw(legId);
+        }
+    }
+
     // This function was called by chainlink or by the user
     // TODO Use historical price instead
     // From the traditonal finance perspective, the swap should be settled at the end of the period, meanwhile this
@@ -312,7 +319,7 @@ contract CryptoSwap is Ownable {
     // TODO: Depeneding of the situation
     // TODO: For the moment, use only withdraw (getHistoryPerformance)
     // function settleSwap(uint64 legId) private {
-    function settleSwap(uint64 legId) external {
+    function settleSwap(uint64 legId) public onlyOpenerOrPairer(legId) {
         // TODO more conditions check
         // 1. time check
         Leg memory originalLeg = legs[legId];
@@ -322,11 +329,11 @@ contract CryptoSwap is Ownable {
         require(swapDealInfos[openerlegId].status == Status.ACTIVE, "The swap is not active");
 
         // only can be called in one period
-        SwapDealInfo memory swapDealInfo = swapDealInfos[legId];
+        // TODO, check updateData must be the last period
         // TOOD should test below case
+        SwapDealInfo memory swapDealInfo = swapDealInfos[legId];
         require(
-            block.timestamp >= swapDealInfo.updateDate + swapDealInfo.periodInterval
-                && block.timestamp < swapDealInfo.updateDate + swapDealInfo.periodInterval * 2,
+            _calculateLastUpdateBasedNow(swapDealInfo) == swapDealInfo.updateDate,
             "The swap can only be settled in one period"
         );
 
@@ -337,6 +344,14 @@ contract CryptoSwap is Ownable {
         (profit, winnerLegId, loserLegId) = calculatePerformanceForPeriod(
             legId, originalLeg.pairLegId, swapDealInfo.updateDate, swapDealInfo.updateDate + swapDealInfo.periodInterval
         );
+
+        if (profit < 0) {
+            // TODO, if the loser is bankrupt, should return 0
+            // TODO msg.sender check msg.sender is bankrupt
+            // emit _bankrupt(winnerLegId, loserLegId);
+            return;
+        }
+
         if (profit == 0) {
             emit NoProfitWhileSettle(legId, originalLeg.swaper, pairLeg.swaper);
             return;
@@ -349,11 +364,6 @@ contract CryptoSwap is Ownable {
             priceFeeds.getHistoryPrice(originalLeg.tokenAddress, swapDealInfo.updateDate + swapDealInfo.periodInterval);
         legs[originalLeg.pairLegId].benchPrice =
             priceFeeds.getHistoryPrice(pairLeg.tokenAddress, swapDealInfo.updateDate + swapDealInfo.periodInterval);
-
-        // console2.log("legId benchPrice",legs[legId].benchPrice);
-        // console2.log("legs[originalLeg.pairLegId].benchPrice",legs[originalLeg.pairLegId].benchPrice);
-
-        // IERC20(settledStableToken).transfer(winner, profit);
 
         // TODO below logic should optimize
         address yieldAddress = YieldStrategies.getYieldStrategy(legs[loserLegId].yieldId);
@@ -406,10 +416,10 @@ contract CryptoSwap is Ownable {
         uint256 updateDate = swapDealInfo.updateDate;
         require(block.timestamp > updateDate, "The swap is not started or have been withdrawed");
         uint32 periodInterval = swapDealInfo.periodInterval;
-        uint256 numberOfPeriods = (block.timestamp - updateDate) / periodInterval;
+        uint256 leftPeriods = (block.timestamp - updateDate) / periodInterval;
         bool isBankrupt = false;
         // TODO: Update this part
-        if (numberOfPeriods == 1) {
+        if (leftPeriods == 1) {
             return (false, 0, 0, 0, 0);
         }
 
@@ -425,13 +435,9 @@ contract CryptoSwap is Ownable {
         int256 predictBalancesLegPair = legs[leg.pairLegId].balance;
 
         uint256 i;
-        // TODO, there updateDate should changed into startDate
-        for (i; i < numberOfPeriods; i++) {
-            (uint256 profit, uint64 roundWinner, uint64 roundLoser) = calculatePerformanceForPeriod(
-                legId, leg.pairLegId, updateDate + periodInterval * i, updateDate + periodInterval * (1 + i)
-            );
-            console2.log("totoalprofit", profit);
-
+        for (i; i < leftPeriods; i++) {
+            (uint256 profit, uint64 roundWinner, uint64 roundLoser) =
+                calculatePerformanceForPeriod(legId, leg.pairLegId, updateDate, updateDate + periodInterval * (i + 1));
             if (legId == roundWinner) {
                 predictBalancesLeg += int256(profit);
                 predictBalancesLegPair -= int256(profit);
@@ -464,13 +470,12 @@ contract CryptoSwap is Ownable {
     }
 
     // todo reentrance check
-    function withdraw(uint64 legId) external returns (int256) {
+    function withdraw(uint64 legId) public onlyOpenerOrPairer(legId) returns (int256) {
         uint64 pairLegId = legs[legId].pairLegId;
         require(
             legs[legId].swaper == msg.sender || legs[pairLegId].swaper == msg.sender,
             "Only the swaper can withdraw the leg"
         );
-
         (bool isBankrupt, uint64 winnerLegId, uint64 loserlegId, int256 profit, uint256 latestDate) =
             getHistoryPerformance(legId);
 
@@ -481,11 +486,15 @@ contract CryptoSwap is Ownable {
         }
 
         // TODO: Start from here
-        // address yieldAddress = YieldStrategies.getYieldStrategy(legs[loserLegId].yieldId);
-        // uint256 shares = convertShareToUnderlyingAmount(loserLegId, profit);
-        // IERC20(yieldAddress).transfer(address(YieldStrategies), shares);
+        address yieldAddress = YieldStrategies.getYieldStrategy(legs[loserlegId].yieldId);
+        uint256 shares = convertShareToUnderlyingAmount(loserlegId, uint256(profit));
+        IERC20(yieldAddress).transfer(address(YieldStrategies), shares);
 
-        IERC20(settledStableToken).transfer(legs[winnerLegId].swaper, uint256(profit));
+        address winner = legs[winnerLegId].swaper;
+        // TODO below function should check
+        console2.log("expected profit", profit);
+        uint256 actualProfit = YieldStrategies.withdrawYield(legs[loserlegId].yieldId, shares, winner);
+        console2.log("actual profit", actualProfit);
 
         uint64 openerleg = legs[legId].legType == LegType.OPENER ? legId : pairLegId;
         swapDealInfos[legId].updateDate = uint64(latestDate);
@@ -537,12 +546,14 @@ contract CryptoSwap is Ownable {
             // TODO, can apply the limit? as x1/x - y1/y+x2/x1-y2/y1+…, move the division into the last operation
             profit = (uint256(legAEndPrice * legBStartPrice - legAStartPrice * legBEndPrice) * notionalAmount)
                 / uint256(legAStartPrice * legBStartPrice);
+
             winnerLegId = legAId;
             loserLegId = legBId;
             console2.log("winner: maker");
         } else {
             profit = (uint256(legBEndPrice * legAStartPrice - legAEndPrice * legBStartPrice) * notionalAmount)
                 / uint256(legAStartPrice * legBStartPrice);
+
             console2.log("winner: taker");
             winnerLegId = legBId;
             loserLegId = legAId;
@@ -629,6 +640,12 @@ contract CryptoSwap is Ownable {
     function _getEndDate(uint64 legId) internal view returns (uint64) {
         SwapDealInfo memory swapDealInfo = swapDealInfos[legId];
         return swapDealInfo.startDate + swapDealInfo.periodInterval * swapDealInfo.totalIntervals;
+    }
+
+    // Calculate the required updateDate based current timestamp
+    function _calculateLastUpdateBasedNow(SwapDealInfo memory swapDealInfo) internal returns (uint256) {
+        uint256 numberOfPeriods = (block.timestamp - swapDealInfo.startDate) / swapDealInfo.periodInterval;
+        return swapDealInfo.startDate + swapDealInfo.periodInterval * (numberOfPeriods - 1);
     }
 
     // TODO ,temp function should consider move to YieldStrategies contract. Are there problems related with applying

@@ -71,3 +71,14 @@
          CryptoSwap.Leg memory leg = cryptoSwap.queryLeg(legId);
       }
    ```
+
+7. Test cases doing
+
+```
+ /**
+     * Test cases:
+     *     1. typicail call withdrawRouter, settleSwap,withdraw in first period
+     *     2. First period not called, then will call withdraw
+     *     3. check in different periods, the results is right
+     */
+```

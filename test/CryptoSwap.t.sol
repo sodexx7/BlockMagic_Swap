@@ -271,6 +271,7 @@ contract CryptoSwapTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit NoProfitWhileSettle(1, swaper, pairer);
+        vm.prank(swaper);
         cryptoSwap.settleSwap(1);
     }
 
@@ -325,6 +326,7 @@ contract CryptoSwapTest is Test {
 
         uint256 cryptoSwapUsdcAmountBefore = usdcContract.balanceOf(address(cryptoSwap));
         uint256 swaperUsdcAmountBefore = usdcContract.balanceOf(swaper);
+        vm.prank(swaper);
         cryptoSwap.settleSwap(1);
         uint256 swaperUsdcAmountAfter = usdcContract.balanceOf(swaper);
         uint256 cryptoSwapUsdcAmountAfter = usdcContract.balanceOf(address(cryptoSwap));
@@ -386,6 +388,7 @@ contract CryptoSwapTest is Test {
 
         uint256 cryptoSwapUsdcAmountBefore = usdcContract.balanceOf(address(cryptoSwap));
         uint256 pairerUsdcAmountBefore = usdcContract.balanceOf(pairer);
+        vm.prank(pairer);
         cryptoSwap.settleSwap(1);
         uint256 pairerUsdcAmountAfter = usdcContract.balanceOf(pairer);
         uint256 cryptoSwapUsdcAmountAfter = usdcContract.balanceOf(address(cryptoSwap));
@@ -474,6 +477,7 @@ contract CryptoSwapTest is Test {
         uint256 swaperUsdcAmountBefore = usdcContract.balanceOf(swaper);
         console2.log("Settle the swap");
 
+        vm.prank(swaper);
         cryptoSwap.settleSwap(1);
         console2.log("Get swaperUsdcAmountAfter");
         uint256 swaperUsdcAmountAfter = usdcContract.balanceOf(swaper);
