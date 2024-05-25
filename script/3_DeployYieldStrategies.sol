@@ -18,11 +18,11 @@ contract DeployYieldStrategies is Script {
         // yieldIds[1] = 2; // Example yield ID
 
         // Mock addresses for example (use actual addresses of yield strategy contracts)
-        yieldAddresses[0] = address(0x8c30c02cbDD4264F458a2083D3CC188c0fd0c3F5); // mock yusdc
+        yieldAddresses[0] = address(0xef4e8d48B1a246ce84198f6bB153c17827Ff2AB2); // mock yusdc
         // yieldAddresses[1] = address(0x456); // Example address
 
         // Address of the stable token used in the YieldStrategies contract
-        address settledStableToken = address(0xeA67D3A83b9Fd211410682Bc3A0De11e29748610); // mock usdc
+        address settledStableToken = address(0xD1dFe211482A70165960dBdEF6077739a2483acf); // mock usdc
 
         // Deploy the YieldStrategies contract
         YieldStrategies yieldStrategies = new YieldStrategies(yieldIds, yieldAddresses, settledStableToken);

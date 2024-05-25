@@ -3,7 +3,6 @@ pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { console2 } from "forge-std/src/console2.sol";
 
 contract YieldStrategies is Ownable {
     mapping(uint8 => address) public yieldAddresses;
@@ -37,7 +36,6 @@ contract YieldStrategies is Ownable {
         (bool ok, bytes memory result) =
             yieldStrategyAddress.call(abi.encodeWithSignature("deposit(uint256,address)", amount, recipient));
         require(ok);
-        // console2.log("share",abi.decode(result, (uint256)),"deposit amount:",amount);
         return abi.decode(result, (uint256));
     }
 

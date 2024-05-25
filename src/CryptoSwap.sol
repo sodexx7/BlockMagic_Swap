@@ -4,7 +4,6 @@ pragma solidity 0.8.25;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { console2 } from "forge-std/src/console2.sol";
 import "./interfaces/IPriceFeeds.sol";
 import "./interfaces/IYieldStrategies.sol";
 
@@ -365,9 +364,7 @@ contract CryptoSwap is Ownable {
         IERC20(yieldAddress).transfer(address(YieldStrategies), shares);
 
         // TODO below function should check
-        console2.log("expected profit", profit);
         uint256 actualProfit = YieldStrategies.withdrawYield(legs[loserLegId].yieldId, shares, winner);
-        console2.log("actual profit", actualProfit);
 
         // IERC20(settledStableToken).transfer(winner, actualProfit);
 
@@ -486,9 +483,7 @@ contract CryptoSwap is Ownable {
 
         address winner = legs[winnerLegId].swaper;
         // TODO below function should check
-        console2.log("expected profit", profit);
         uint256 actualProfit = YieldStrategies.withdrawYield(legs[loserlegId].yieldId, shares, winner);
-        console2.log("actual profit", actualProfit);
 
         uint64 openerleg = legs[legId].legType == LegType.OPENER ? legId : pairLegId;
         swapDealInfos[legId].updateDate = uint64(latestDate);
@@ -543,12 +538,10 @@ contract CryptoSwap is Ownable {
 
             winnerLegId = legAId;
             loserLegId = legBId;
-            console2.log("winner: maker");
         } else {
             profit = (uint256(legBEndPrice * legAStartPrice - legAEndPrice * legBStartPrice) * notionalAmount)
                 / uint256(legAStartPrice * legBStartPrice);
 
-            console2.log("winner: taker");
             winnerLegId = legBId;
             loserLegId = legAId;
         }

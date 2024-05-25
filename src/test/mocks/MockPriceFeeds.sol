@@ -5,8 +5,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "../../DegenFetcherV2.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV2V3Interface.sol";
 
-import { console2 } from "forge-std/src/console2.sol";
-
 /**
  * @title The PriceFeeds contract
  * @notice A contract that returns latest price from Chainlink Price Feeds

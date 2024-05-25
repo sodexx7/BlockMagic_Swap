@@ -2,7 +2,6 @@
 pragma solidity ^0.8.7;
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV2V3Interface.sol";
-import { console2 } from "forge-std/src/console2.sol";
 
 contract DegenFetcherV2 {
     uint80 constant SECONDS_PER_DAY = 3600 * 24;
@@ -84,8 +83,6 @@ contract DegenFetcherV2 {
                 (lhRound, lhTime) = (guessRound, guessTime);
             }
         }
-        console2.log("lhRound: ", lhRound, "rhRound: ", rhRound);
-        console2.log("guessRound: ", guessRound);
         return (lhRound, rhRound);
     }
 
@@ -105,12 +102,8 @@ contract DegenFetcherV2 {
         uint256 diff2 = targetTimestamp > timestamp2 ? targetTimestamp - timestamp2 : timestamp2 - targetTimestamp;
 
         if (diff1 < diff2) {
-            console2.log("Round picked: ", roundId1);
-            console2.log("Timestamp: ", timestamp1);
             return price1;
         } else {
-            console2.log("Round picked: ", roundId2);
-            console2.log("Timestamp: ", timestamp2);
             return price2;
         }
     }

@@ -18,6 +18,7 @@
    - forge test --match-path test/CryptoSwap.t.sol --match-test test_openBatchSwap -vv
 4. Deploy
    - forge script script/DeployMockContracts.sol --rpc-url sepolia --broadcast --verify -vvvv
+   - forge script script/arb/DeployCryptoSwap.sol --rpc-url arbitrum --broadcast --verify --legacy
 
 # Doing
 

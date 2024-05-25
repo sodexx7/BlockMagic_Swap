@@ -3,7 +3,6 @@ pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import { console2 } from "forge-std/src/console2.sol";
 
 /**
  * @title A Mock ERC20 contract used for testing

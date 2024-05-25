@@ -11,13 +11,13 @@ contract DeployCryptoSwap is Script {
 
         // Parameters for the constructor of CryptoSwap
         // address settledStableToken = vm.envAddress("SETTLED_STABLE_TOKEN");
-        address settledStableToken = address(0xeA67D3A83b9Fd211410682Bc3A0De11e29748610); // mock usdc
+        address settledStableToken = address(0xD1dFe211482A70165960dBdEF6077739a2483acf); // mock usdc
 
         // address priceFeedsAddress = vm.envAddress("PRICE_FEEDS_ADDRESS");
-        address priceFeedsAddress = address(0x64D392194d45727c061684c394035CfF240480D1);
+        address priceFeedsAddress = address(0x7A517083bbD52c59558fF9530C3f683840B60aCb); //Mock price Feeds
 
         // address YieldStrategiesAddress = vm.envAddress("YIELD_STRATEGYS_ADDRESS");
-        address YieldStrategiesAddress = address(0xfa12B0c5Af2D60a4748F4038163854E8FaAd26d8);
+        address YieldStrategiesAddress = address(0x2bA9Ffe137d71b6f6e65f1Ca89C5bC5F42119bF0);
 
         // Example notional IDs and values for the constructor
         uint8[] memory notionalIds = new uint8[](5);
