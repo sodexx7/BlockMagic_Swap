@@ -299,6 +299,8 @@ contract CryptoSwap is Ownable {
                 swapContract.legA.withdrawable = 0;
     
                 amount = swapContract.legA.withdrawable;
+
+                yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userA);
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
                 } else {
                 if (swapContract.legB.withdrawable > 0) revert NoWinningsAvailable();
@@ -306,6 +308,8 @@ contract CryptoSwap is Ownable {
                 swapContract.legB.withdrawable = 0;
     
                 amount = swapContract.legB.withdrawable;
+
+                yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userB);
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, amount);
                 }
         } else {
@@ -314,14 +318,17 @@ contract CryptoSwap is Ownable {
                 swapContract.legA.balance = 0;
 
                 amount = swapContract.legA.balance;
+
+                yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userA);
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
             } else {
 
                 swapContract.legB.balance = 0;
 
                 amount = swapContract.legB.balance;
+
+                yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userB);
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, amount);
-            
             }
         }
         emit WinningsWithdrawn(
