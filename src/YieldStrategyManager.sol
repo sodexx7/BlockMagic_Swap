@@ -62,3 +62,7 @@ contract YieldStrategyManager is Ownable {
         return yieldAddresses[_strategyId];
     }
 }
+
+    ///////////////////////////////////////////////////////
+    ///                 VIEW FUNCTIONS                  ///
+    ///////////////////////////////////////////////////////
