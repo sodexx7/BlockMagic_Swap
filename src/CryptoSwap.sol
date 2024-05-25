@@ -11,6 +11,8 @@ import "./interfaces/IYieldStrategyManager.sol";
 contract CryptoSwap is Ownable {
     using SafeERC20 for IERC20;
 
+    uint256 constant public BASIS_POINT = 10000;
+
     IPriceFeedManager private immutable priceFeedManager;
     IYieldStrategyManager private immutable yieldStrategyManager;
     mapping(uint8 => address) public settlementTokenAddresses;
@@ -71,11 +73,10 @@ contract CryptoSwap is Ownable {
     struct Leg {
         bool legPosition; // true for legA, false for legB
         uint16 feedId;
-        int256 benchPrice;
+        int256 originalPrice;
         int256 lastPrice;
         uint256 balance;
         uint256 withdrawable;
-        uint256 poolPercentage; // percentage of the pool that this Leg currently owns
     }
 
     struct Period{
@@ -155,9 +156,9 @@ contract CryptoSwap is Ownable {
         int256 legALatestPrice = priceFeedManager.getLatestPrice(swapContract.legA.feedId);
         int256 legBLatestPrice = priceFeedManager.getLatestPrice(swapContract.legB.feedId);
     
-        swapContract.legA.benchPrice = legALatestPrice;
+        swapContract.legA.originalPrice = legALatestPrice;
         swapContract.legA.lastPrice = legALatestPrice;
-        swapContract.legB.benchPrice = legBLatestPrice;
+        swapContract.legB.originalPrice = legBLatestPrice;
         swapContract.legB.lastPrice = legBLatestPrice;
     
         uint256 halfNotionalAmount = swapContract.notionalAmount / 2;
@@ -185,8 +186,8 @@ contract CryptoSwap is Ownable {
         }
     }
 
-    function withdrawWinnings(uint256 masterId, uint256 contractId) public {
-        SwapContract memory swapContract = swapContracts[masterId][contractId];
+    function withdrawWinnings(uint256 _swapContractMasterId, uint256 _swapContractId) public {
+        SwapContract memory swapContract = swapContracts[_swapContractMasterId][_swapContractId];
         require(msg.sender == swapContract.userA || msg.sender == swapContract.userB, "Unauthorized!");
         require(swapContract.status != Status.OPEN, "The swapContract is not active, settled, cancelled");
     
@@ -229,53 +230,43 @@ contract CryptoSwap is Ownable {
     // If the user does not check their position for many intervals gas will become very expensive
     // Max possible intervals before breaking due to block gas limits is roughly 300
     // It is important for users to stay current with their position
-    function _updatePosition(uint256 masterId, uint256 contractId) internal {
-        SwapContract storage swapContract = swapContracts[masterId][contractId];
+    function _updatePosition(uint256 _swapContractMasterId, uint256 _swapContractId) internal {
+        SwapContract storage swapContract = swapContracts[_swapContractMasterId][_swapContractId];
         Period storage period = swapContract.period;
 
         uint256 startDate = period.startDate;
         uint256 periodInterval = period.periodInterval;
+        uint256 notionalAmount = swapContract.notionalAmount;
     
         while (block.timestamp >= startDate + (periodInterval * period.intervalCount)) {
-            uint256 intervalCount = period.intervalCount;
-            int256 currentPriceA = priceFeedManager.getHistoryPrice(swapContract.legA.feedId, startDate + (periodInterval * intervalCount));
-            int256 currentPriceB = priceFeedManager.getHistoryPrice(swapContract.legB.feedId, startDate + (periodInterval * intervalCount));
-        
-            int256 legALastPrice = swapContract.legA.lastPrice;
-            int256 legBLastPrice = swapContract.legB.lastPrice;
-            int256 performanceA = (currentPriceA - legALastPrice) * 10000 / legALastPrice;
-            int256 performanceB = (currentPriceB - legBLastPrice) * 10000 / legBLastPrice;
-        
-            uint256 legABalance = swapContract.legA.balance;
-            uint256 legBBalance = swapContract.legB.balance;
+            uint256 currentInterval = startDate + (periodInterval * period.intervalCount);
+            uint256 nextInterval = startDate + (periodInterval * (period.intervalCount + 1));
 
-            uint256 totalValue = legABalance + legBBalance;
-            uint256 performanceDiff;
-            uint256 valueChange;
+            (int256 legAStartPrice, int256 legAEndPrice) = getPricesForPeriod(swapContract.legA.feedId, currentInterval, nextInterval);
+            (int256 legBStartPrice, int256 legBEndPrice) = getPricesForPeriod(swapContract.legB.feedId, currentInterval, nextInterval);
+
+            swapContract.legA.lastPrice = legAEndPrice;
+            swapContract.legB.lastPrice = legBEndPrice;
+
+            uint256 netValueChange;
+
+            if (legAEndPrice * legBStartPrice > legBEndPrice * legAStartPrice) {
+                // Notice: To keep the precision, should multiply the notionalAmount at the end. if not, the profit will be
+                // less than 0 when all leg prices are decreased
+                // TODO, can apply the limit? as x1/x - y1/y+x2/x1-y2/y1+…, move the division into the last operation
+                netValueChange = (uint256(legAEndPrice * legBStartPrice - legAStartPrice * legBEndPrice) * notionalAmount)
+                    / uint256(legAStartPrice * legBStartPrice);
     
-            if (performanceA > performanceB) {
-                performanceDiff = uint256(performanceA - performanceB);
-                // Apply the poolPercentage to calculate the value change
-                valueChange = (performanceDiff * totalValue * swapContract.legA.poolPercentage) / 1000000; // Adjusted for basis points and percentage
-                swapContract.legA.withdrawable += valueChange;
-                legBBalance -= valueChange;
-            } else if (performanceB > performanceA) {
-                performanceDiff = uint256(performanceB - performanceA);
-                valueChange = (performanceDiff * totalValue * swapContract.legB.poolPercentage) / 1000000; // Adjusted for basis points and percentage
-                legABalance -= valueChange;
-                swapContract.legB.withdrawable += valueChange;
+                swapContract.legB.balance -= netValueChange;
+                swapContract.legA.withdrawable += netValueChange;
+
+            } else {
+                netValueChange = (uint256(legBEndPrice * legAStartPrice - legAEndPrice * legBStartPrice) * notionalAmount)
+                    / uint256(legAStartPrice * legBStartPrice);
+    
+                swapContract.legA.balance -= netValueChange;
+                swapContract.legB.withdrawable += netValueChange;
             }
-
-            // Update the pool percentages based on new balances
-            uint256 newLegABalance = swapContract.legA.balance;
-            uint256 newLegBBalance = swapContract.legB.balance;
-            uint256 newTotal = swapContract.legA.balance + swapContract.legB.balance;
-            swapContract.legA.poolPercentage = (newLegABalance * 10000) / newTotal;
-            swapContract.legB.poolPercentage = (newLegBBalance * 10000) / newTotal;
-    
-            // Update last prices for next interval
-            swapContract.legA.lastPrice = currentPriceA;
-            swapContract.legB.lastPrice = currentPriceB;
         
             period.intervalCount++;
         }    
@@ -289,21 +280,19 @@ contract CryptoSwap is Ownable {
         legA = Leg({
             legPosition: true,
             feedId: _feedIdA,
-            benchPrice: 0,
+            originalPrice: 0,
             lastPrice: 0,
             withdrawable: 0,
-            balance: _notionalAmount / 2,
-            poolPercentage: 50e18
+            balance: _notionalAmount / 2
         });
     
         legB = Leg({
             legPosition: false,
             feedId: _feedIdB,
-            benchPrice: 0,
+            originalPrice: 0,
             lastPrice: 0,
             withdrawable: 0,
-            balance: _notionalAmount / 2,
-            poolPercentage: 50e18
+            balance: _notionalAmount / 2
         });
     }
 
@@ -324,6 +313,21 @@ contract CryptoSwap is Ownable {
         } else {
             period.periodInterval = 365 days;
         }
+    }
+
+    function getPricesForPeriod(
+        uint16 _feedId,
+        uint256 _startDate,
+        uint256 _endDate
+    )
+        public
+        view
+        returns (int256, int256)
+    {
+        int256 startPrice = priceFeedManager.getHistoryPrice(_feedId, _startDate);
+        int256 endPrice = priceFeedManager.getHistoryPrice(_feedId, _endDate);
+
+        return (startPrice, endPrice);
     }
 
     ///////////////////////////////////////////////////////

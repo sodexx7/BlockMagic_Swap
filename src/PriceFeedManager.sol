@@ -19,6 +19,14 @@ contract PriceFeedManager is Ownable, DegenFetcher {
     constructor() Ownable(_msgSender()) {
     }
 
+    function addPriceFeed(uint16 _feedId, address priceFeedAddress) external onlyOwner {
+        priceFeedAddresses[_feedId] = priceFeedAddress;
+    }
+
+    function removePriceFeed(uint16 _feedId) external onlyOwner {
+        delete priceFeedAddresses[_feedId];
+    }
+
     /**
      * @notice Returns the latest price
      *
@@ -61,11 +69,6 @@ contract PriceFeedManager is Ownable, DegenFetcher {
     // TODO for test
     function description(uint16 _feedId) public view returns (string memory) {
         return AggregatorV3Interface(priceFeedAddresses[_feedId]).description();
-    }
-
-    // TODO, below function should optimize
-    function addPriceFeed(uint16 _feedId, address priceFeedAddress) external onlyOwner {
-        priceFeedAddresses[_feedId] = priceFeedAddress;
     }
 
     function priceFeedDecimals(uint16 _feedId) public view returns (uint8) {
