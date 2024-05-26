@@ -1,7 +1,7 @@
 pragma solidity 0.8.25;
 
 interface IPriceFeedManager {
-    function getLatestPrice(uint16 feedId) external view returns (int256);
+    function getLatestPrice(uint16 feedId) external  returns (int256);
 
     function getHistoryPrice(uint16 feedId, uint256 timestamp) external view returns (int256);
 

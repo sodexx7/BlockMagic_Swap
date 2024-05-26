@@ -24,7 +24,8 @@ contract CryptoSwapTest is Test {
     address userB;
 
     function setUp() public {
-        mainnetFork = vm.createFork({ urlOrAlias: "mainnet" });
+        uint256 blockNumber = 19934641;
+        mainnetFork = vm.createFork(vm.rpcUrl("mainnet"), blockNumber);
         vm.selectFork(mainnetFork);
 
         owner = makeAddr("owner");
@@ -41,11 +42,8 @@ contract CryptoSwapTest is Test {
         cryptoSwap = new CryptoSwap(address(priceFeedManager), address(yieldStrategyManager));
         cryptoSwap.addSettlementToken(1, address(usdc));
 
-        emit log_named_uint("Whale USDC Balance before transfer", usdc.balanceOf(usdcWhale));
         vm.prank(usdcWhale);
-        bool success = usdc.transfer(userA, 10000e6);
-        require(success, "Transfer of USDC failed");
-        emit log_named_uint("User A USDC Balance after transfer", usdc.balanceOf(userA));
+        usdc.transfer(userA, 10000e6);
         
         vm.prank(userA);
         usdc.approve(address(cryptoSwap), 1000e6);
@@ -54,9 +52,9 @@ contract CryptoSwapTest is Test {
     function testOpenSwap() public {
         vm.startPrank(userA);
         uint256 contractCreationCount = 1;
-        uint256 notionalAmount = 500e6;  // Assuming USDC has 6 decimals like on mainnet
+        uint256 notionalAmount = 1000e6;  // Assuming USDC has 6 decimals like on mainnet
         uint64 startDate = uint64(block.timestamp + 1 days);
-        uint16 feedIdA = 0; // ARB
+        uint16 feedIdA = 0; // ETH
         uint16 feedIdB = 1; // BTC
         uint8 periodType = 0;  // Weekly
         uint8 totalIntervals = 4;
@@ -73,6 +71,45 @@ contract CryptoSwapTest is Test {
         assertEq(cryptoSwap.contractCreationCount(0), 1);
         CryptoSwap.SwapContract memory swapContract = cryptoSwap.getSwapContract(0, 0);
         assertEq(swapContract.notionalAmount, notionalAmount);
+        assertEq(swapContract.period.startDate, startDate);
+        assertEq(swapContract.legA.feedId, feedIdA);
+        assertEq(swapContract.legB.feedId, feedIdB);
+        assertEq(swapContract.period.periodInterval, 7 days);
+        assertEq(swapContract.period.totalIntervals, totalIntervals);
+        assertEq(swapContract.settlementTokenId, settlementTokenId);
+        assertEq(swapContract.yieldId, yieldId);
+        assertEq(swapContract.notionalAmount, notionalAmount);
         assertEq(uint(swapContract.status), uint(CryptoSwap.Status.OPEN));
+    }
+
+    function testPairSwap() public {
+        // Open a swap
+        testOpenSwap();
+
+        vm.prank(userA);
+        usdc.transfer(userB, 500e6);
+
+        vm.startPrank(userB);
+        usdc.approve(address(cryptoSwap), 500e6);
+
+        // Pair the swap
+        cryptoSwap.pairSwap(0, 0);
+        vm.stopPrank();
+
+        // Check for event and state changes if necessary
+        CryptoSwap.SwapContract memory swapContract = cryptoSwap.getSwapContract(0, 0);
+        assertEq(uint(swapContract.status), uint(CryptoSwap.Status.ACTIVE));
+        assertEq(swapContract.userA, userA);
+        assertEq(swapContract.userB, userB);
+        assertEq(swapContract.legA.balance, 500e6);
+        assertEq(swapContract.legB.balance, 500e6);
+        assertEq(swapContract.legA.legPosition, true);
+        assertEq(swapContract.legB.legPosition, false);
+        assertEq(usdc.balanceOf(address(cryptoSwap)), 1000e6);
+
+        emit log_named_int("legALastPrice", swapContract.legA.lastPrice);
+        emit log_named_int("originalPrice", swapContract.legA.originalPrice);
+        emit log_named_int("legBLastPrice", swapContract.legB.lastPrice);
+        emit log_named_int("originalPrice", swapContract.legB.originalPrice);
     }
 }
