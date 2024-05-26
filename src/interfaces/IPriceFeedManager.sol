@@ -7,7 +7,6 @@ interface IPriceFeedManager {
 
     function getPriceFeed(uint16 feedId) external view returns (address);
 
-    // TODO for test
     function description(uint16 feedId) external view returns (string memory);
 
     function addPriceFeed(uint16 feedId, address priceFeedAddress) external;

@@ -5,73 +5,63 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./DegenFetcher.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV2V3Interface.sol";
 
-import { console2 } from "forge-std/src/console2.sol";
-
-/**
- * @title The PriceFeeds contract
- * @notice A contract that returns latest price from Chainlink Price Feeds
- */
 contract PriceFeedManager is Ownable, DegenFetcher {
-    // TODO, Now directly get by price, can apply register in the future
-    // tokenAddress=>priceFeedAddress
-    mapping(uint16 => address) priceFeedAddresses;
+    mapping(uint16 => address) public priceFeedAddresses;
 
-    constructor() Ownable(_msgSender()) {
-    }
+    event PriceFeedAdded(uint16 indexed feedId, address indexed feedAddress);
+    event PriceFeedRemoved(uint16 indexed feedId);
+    event PriceQueried(uint16 indexed feedId, int256 price);
+
+    error FeedAlreadyExists(uint16 feedId);
+    error FeedDoesNotExist(uint16 feedId);
+    error Unauthorized();
+
+    constructor() Ownable(msg.sender) {}
 
     function addPriceFeed(uint16 _feedId, address priceFeedAddress) external onlyOwner {
+        if (priceFeedAddresses[_feedId] != address(0)) {
+            revert FeedAlreadyExists(_feedId);
+        }
         priceFeedAddresses[_feedId] = priceFeedAddress;
+        emit PriceFeedAdded(_feedId, priceFeedAddress);
     }
 
     function removePriceFeed(uint16 _feedId) external onlyOwner {
+        if (priceFeedAddresses[_feedId] == address(0)) {
+            revert FeedDoesNotExist(_feedId);
+        }
         delete priceFeedAddresses[_feedId];
+        emit PriceFeedRemoved(_feedId);
     }
 
-    /**
-     * @notice Returns the latest price
-     *
-     * @return latest price
-     */
-
-    //  TODO, should check updatTime, keep the price is the latest price
-    function getLatestPrice(uint16 _feedId) public view returns (int256) {
-        (
-            /* uint80 roundID */
-            ,
-            int256 price,
-            /* uint256 startedAt */
-            ,
-            /* uint256 timeStamp */
-            ,
-            /* uint80 answeredInRound */
-        ) = AggregatorV3Interface(priceFeedAddresses[_feedId]).latestRoundData();
-
+    function getLatestPrice(uint16 _feedId) public returns (int256) {
+        if (priceFeedAddresses[_feedId] == address(0)) {
+            revert FeedDoesNotExist(_feedId);
+        }
+        (,int256 price,,,) = AggregatorV3Interface(priceFeedAddresses[_feedId]).latestRoundData();
+        emit PriceQueried(_feedId, price);
         return price;
     }
 
-    // Through degenFetcher, get historypirce
-    // TODO how to config the params?
     function getHistoryPrice(uint16 _feedId, uint256 timestamp) public view returns (int256) {
-        int32[] memory prices =
-            fetchPriceDataForFeed(priceFeedAddresses[_feedId], timestamp, uint80(1), uint256(2));
+        if (priceFeedAddresses[_feedId] == address(0)) {
+            revert FeedDoesNotExist(_feedId);
+        }
+        int32[] memory prices = fetchPriceDataForFeed(priceFeedAddresses[_feedId], timestamp, uint80(1), uint256(2));
         return prices[0];
     }
 
-    /**
-     * @notice Returns the Price Feed address
-     *
-     * @return Price Feed address
-     */
-    function getPriceFeed(uint16 _feedId) public view returns (address) {
-        return priceFeedAddresses[_feedId];
-    }
-
-    // TODO for test
     function description(uint16 _feedId) public view returns (string memory) {
+        if (priceFeedAddresses[_feedId] == address(0)) {
+            revert FeedDoesNotExist(_feedId);
+        }
         return AggregatorV3Interface(priceFeedAddresses[_feedId]).description();
     }
 
     function priceFeedDecimals(uint16 _feedId) public view returns (uint8) {
+        if (priceFeedAddresses[_feedId] == address(0)) {
+            revert FeedDoesNotExist(_feedId);
+        }
         return AggregatorV3Interface(priceFeedAddresses[_feedId]).decimals();
     }
 }

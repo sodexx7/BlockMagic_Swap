@@ -86,8 +86,8 @@ contract CryptoSwap is Ownable {
     )
         Ownable(msg.sender)
     {
-        priceFeedManager = IPriceFeedManager(priceFeedManager);
-        yieldStrategyManager = IYieldStrategyManager(yieldStrategyManager);
+        priceFeedManager = IPriceFeedManager(_priceFeedManager);
+        yieldStrategyManager = IYieldStrategyManager(_yieldStrategyManager);
     }
 
     ///////////////////////////////////////////////////////
@@ -430,7 +430,7 @@ contract CryptoSwap is Ownable {
     /// @param _feedIdB Feed ID for leg B
     /// @return legA Initialized leg structure for leg A
     /// @return legB Initialized leg structure for leg B
-    function _handleLegs(uint256 _notionalAmount, uint16 _feedIdA, uint16 _feedIdB) internal returns (Leg memory legA, Leg memory legB) {
+    function _handleLegs(uint256 _notionalAmount, uint16 _feedIdA, uint16 _feedIdB) internal pure returns (Leg memory legA, Leg memory legB) {
         legA = Leg({
             legPosition: true,
             feedId: _feedIdA,
@@ -501,6 +501,10 @@ contract CryptoSwap is Ownable {
         endPrice = priceFeedManager.getHistoryPrice(_feedId, _endDate);
 
         return (startPrice, endPrice);
+    }
+
+    function getSwapContract(uint256 masterId, uint256 contractId) public view returns (SwapContract memory) {
+        return swapContracts[masterId][contractId];
     }
 
     // function convertShareToUnderlyingAmount(uint64 legId, uint256 profit) internal view returns (uint256) {
