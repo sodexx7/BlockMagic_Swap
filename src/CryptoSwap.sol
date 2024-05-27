@@ -367,19 +367,33 @@ contract CryptoSwap is Ownable {
             swapContract.legB.lastPrice = legBEndPrice;
 
             uint256 netValueChange;
+
             if (legAEndPrice * legBStartPrice > legBEndPrice * legAStartPrice) {
                 netValueChange = (uint256(legAEndPrice * legBStartPrice - legAStartPrice * legBEndPrice) * notionalAmount)
                     / uint256(legAStartPrice * legBStartPrice);
+                if (updatedLegBBalance < netValueChange) {
+                    updatedLegBBalance = 0;
+                    break;
+                }
                 updatedLegBBalance -= netValueChange;
                 updatedLegAWithdrawable += netValueChange;
             } else {
                 netValueChange = (uint256(legBEndPrice * legAStartPrice - legAEndPrice * legBStartPrice) * notionalAmount)
                     / uint256(legAStartPrice * legBStartPrice);
+                if (updatedLegABalance < netValueChange) {
+                    updatedLegABalance = 0;
+                    break;
+                }
                 updatedLegABalance -= netValueChange;
                 updatedLegBWithdrawable += netValueChange;
             }
 
             newIntervalCount++;
+        }
+
+        // Set status to SETTLED if loop was broken due to balance underflow
+        if (updatedLegABalance == 0 || updatedLegBBalance == 0) {
+            swapContract.status = Status.SETTLED;
         }
 
         if (updatedLegABalance != swapContract.legA.balance) swapContract.legA.balance = updatedLegABalance;
@@ -396,6 +410,7 @@ contract CryptoSwap is Ownable {
             period.intervalCount
         );
     }
+
 
     ///////////////////////////////////////////////////////
     ///                SETUP FUNCTIONS                  ///

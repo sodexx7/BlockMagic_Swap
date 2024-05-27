@@ -107,9 +107,36 @@ contract CryptoSwapTest is Test {
         assertEq(swapContract.legB.legPosition, false);
         assertEq(usdc.balanceOf(address(cryptoSwap)), 1000e6);
 
-        emit log_named_int("legALastPrice", swapContract.legA.lastPrice);
         emit log_named_int("originalPrice", swapContract.legA.originalPrice);
-        emit log_named_int("legBLastPrice", swapContract.legB.lastPrice);
         emit log_named_int("originalPrice", swapContract.legB.originalPrice);
+    }
+
+    function testSettleSwap() public {
+        // Pair the swap
+        testPairSwap();
+
+        // Calculate the future time as startDate + 14 days
+        CryptoSwap.SwapContract memory swapContract = cryptoSwap.getSwapContract(0, 0);
+        uint64 futureTime = swapContract.period.startDate + 14 days;
+
+        // Warp to that future time
+        vm.warp(futureTime);
+
+        // Settle the swap
+        vm.prank(userA);
+        cryptoSwap.settleSwap(0, 0);
+
+        // Check for event and state changes if necessary
+        swapContract = cryptoSwap.getSwapContract(0, 0);
+        assertEq(uint(swapContract.status), uint(CryptoSwap.Status.ACTIVE));
+
+        emit log_named_int("lastPriceA", swapContract.legA.lastPrice);
+        emit log_named_int("lastPriceB", swapContract.legB.lastPrice);
+
+        emit log_named_uint("legA.balance", swapContract.legA.balance);
+        emit log_named_uint("legB.balance", swapContract.legB.balance);
+        
+        // assertEq(swapContract.legB.balance, 0);
+        // assertEq(usdc.balanceOf(address(cryptoSwap)), 0);
     }
 }
