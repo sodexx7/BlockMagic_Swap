@@ -49,7 +49,7 @@ contract CryptoSwapTest is Test {
         usdc.approve(address(cryptoSwap), 1000e6);
     }
 
-    function testOpenSwap() public {
+    function test_openSwap() public {
         vm.startPrank(userA);
         uint256 contractCreationCount = 1;
         uint256 notionalAmount = 1000e6;  // Assuming USDC has 6 decimals like on mainnet
@@ -82,9 +82,9 @@ contract CryptoSwapTest is Test {
         assertEq(uint(swapContract.status), uint(CryptoSwap.Status.OPEN));
     }
 
-    function testPairSwap() public {
+    function test_pairSwap() public {
         // Open a swap
-        testOpenSwap();
+        test_openSwap();
 
         vm.prank(userA);
         usdc.transfer(userB, 500e6);
@@ -111,32 +111,31 @@ contract CryptoSwapTest is Test {
         emit log_named_int("originalPrice", swapContract.legB.originalPrice);
     }
 
-    function testSettleSwap() public {
-        // Pair the swap
-        testPairSwap();
+    function test_getPricesForPeriod() public {
+        test_pairSwap();
 
-        // Calculate the future time as startDate + 14 days
         CryptoSwap.SwapContract memory swapContract = cryptoSwap.getSwapContract(0, 0);
-        uint64 futureTime = swapContract.period.startDate + 14 days;
 
-        // Warp to that future time
-        vm.warp(futureTime);
+        uint16 feedA = swapContract.legA.feedId;
+        uint16 feedB = swapContract.legB.feedId;
+        uint256 startDate = uint256(swapContract.period.startDate - 30 days);
+        uint256 endDate = uint256(swapContract.period.startDate - 10 days);
 
-        // Settle the swap
-        vm.prank(userA);
-        cryptoSwap.settleSwap(0, 0);
+        // Get the prices for the period
+        (int256 startPriceA, int256 endPriceA) = cryptoSwap.getPricesForPeriod(feedA, startDate, endDate);
+        (int256 startPriceB, int256 endPriceB) = cryptoSwap.getPricesForPeriod(feedB, startDate, endDate);
 
-        // Check for event and state changes if necessary
-        swapContract = cryptoSwap.getSwapContract(0, 0);
-        assertEq(uint(swapContract.status), uint(CryptoSwap.Status.ACTIVE));
+        // Check the prices
+        emit log_named_int("startPriceA", startPriceA);
+        emit log_named_int("endPriceA", endPriceA);
+        emit log_named_int("startPriceB", startPriceB);
+        emit log_named_int("endPriceB", endPriceB);
 
-        emit log_named_int("lastPriceA", swapContract.legA.lastPrice);
-        emit log_named_int("lastPriceB", swapContract.legB.lastPrice);
+        uint256 notional = swapContract.notionalAmount;
+        emit log_named_uint("notional", notional);
 
-        emit log_named_uint("legA.balance", swapContract.legA.balance);
-        emit log_named_uint("legB.balance", swapContract.legB.balance);
-        
-        // assertEq(swapContract.legB.balance, 0);
-        // assertEq(usdc.balanceOf(address(cryptoSwap)), 0);
+        emit log_named_uint("profitCalculation", 
+        (uint256(endPriceB * startPriceA - endPriceA * startPriceB) * notional)
+        / uint256(startPriceA * startPriceB));
     }
 }

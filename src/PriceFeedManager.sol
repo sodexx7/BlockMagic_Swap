@@ -47,8 +47,9 @@ contract PriceFeedManager is Ownable, DegenFetcher {
         if (priceFeedAddresses[_feedId] == address(0)) {
             revert FeedDoesNotExist(_feedId);
         }
-        int32[] memory prices = fetchPriceDataForFeed(priceFeedAddresses[_feedId], timestamp, uint80(1), uint256(2));
-        return prices[0];
+        int32[] memory prices = fetchPriceDataForFeed(priceFeedAddresses[_feedId], timestamp, uint80(1), uint256(48));
+        int256 average = int256(calculatePriceAverage(prices));
+        return average;
     }
 
     function description(uint16 _feedId) public view returns (string memory) {
@@ -63,5 +64,23 @@ contract PriceFeedManager is Ownable, DegenFetcher {
             revert FeedDoesNotExist(_feedId);
         }
         return AggregatorV3Interface(priceFeedAddresses[_feedId]).decimals();
+    }
+
+    function calculatePriceAverage(int32[] memory data) public pure returns (int32) {
+        int256 sum = 0;
+        uint256 count = 0;
+
+        for(uint i = 0; i < data.length; i++) {
+            if(data[i] != 0) {
+                sum += int256(data[i]);
+                count++;
+            }
+        }
+
+        if (count == 0) {
+            return 0;
+        } else {
+            return int32(sum / int256(count));
+        }
     }
 }

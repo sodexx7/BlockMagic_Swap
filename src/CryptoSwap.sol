@@ -12,8 +12,6 @@ import "./interfaces/IYieldStrategyManager.sol";
 contract CryptoSwap is Ownable {
     using SafeERC20 for IERC20;
 
-    uint256 constant public BASIS_POINT = 10000;
-
     /// @notice Price feed manager for managing external price feeds
     IPriceFeedManager public immutable priceFeedManager;
     /// @notice Yield strategy manager for handling yield-generating strategies
@@ -158,6 +156,8 @@ contract CryptoSwap is Ownable {
     error StatusMustBeActive(Status status);
     /// @notice Error for when a swap contract is not active
     error InactiveSwapContract();
+    /// @notice Error for when a swap cannot be settled until a certain timestamp
+    error CannotSettleUntil(uint256 timestamp);
     /// @notice Error for when there are no winnings available for withdrawal
     error NoWinningsAvailable();
     /// @notice Error for when a token already exists in the mapping
@@ -271,7 +271,16 @@ contract CryptoSwap is Ownable {
         if (!(msg.sender == swapContract.userA || msg.sender == swapContract.userB)) revert UnauthorizedAccess();
         if (swapContract.status != Status.ACTIVE) revert StatusMustBeActive(swapContract.status);
 
-        if (block.timestamp < swapContract.period.startDate + (swapContract.period.periodInterval * swapContract.period.totalIntervals)) {
+        uint256 startDate = swapContract.period.startDate;
+        uint256 periodInterval = swapContract.period.periodInterval;
+        uint256 totalIntervals = swapContract.period.totalIntervals;
+        uint256 intervalCount = swapContract.period.intervalCount;
+
+        if (block.timestamp < startDate + (periodInterval * intervalCount)) {
+            revert CannotSettleUntil(startDate + (periodInterval * intervalCount));
+        }
+
+        if (block.timestamp < startDate + (periodInterval * totalIntervals)) {
             _updatePosition(_swapContractMasterId, _swapContractId);
         } else {
             swapContracts[_swapContractMasterId][_swapContractId].status = Status.SETTLED;
@@ -290,6 +299,7 @@ contract CryptoSwap is Ownable {
         if (swapContract.status == Status.OPEN) revert InactiveSwapContract();
     
         bool user = msg.sender == swapContract.userA ? true : false;
+        uint8 yieldId = swapContract.yieldId;
         uint256 amount;
 
         if (swapContract.status == Status.ACTIVE) {
@@ -300,7 +310,9 @@ contract CryptoSwap is Ownable {
     
                 amount = swapContract.legA.withdrawable;
 
-                yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userA);
+                if (yieldId != 0) {
+                    yieldStrategyManager.withdrawYield(yieldId, amount, swapContract.userA);
+                }
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
                 } else {
                 if (swapContract.legB.withdrawable > 0) revert NoWinningsAvailable();
@@ -309,7 +321,9 @@ contract CryptoSwap is Ownable {
     
                 amount = swapContract.legB.withdrawable;
 
-                yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userB);
+                if (yieldId != 0) {
+                    yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userB);
+                }
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, amount);
                 }
         } else {
@@ -319,7 +333,9 @@ contract CryptoSwap is Ownable {
 
                 amount = swapContract.legA.balance;
 
-                yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userA);
+                if(yieldId != 0) {
+                    yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userA);
+                }
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
             } else {
 
@@ -327,7 +343,9 @@ contract CryptoSwap is Ownable {
 
                 amount = swapContract.legB.balance;
 
-                yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userB);
+                if (yieldId != 0) {
+                    yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userB);
+                }
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, amount);
             }
         }
@@ -344,21 +362,20 @@ contract CryptoSwap is Ownable {
     /// @param _swapContractId The individual ID of the contract within the master grouping
     function _updatePosition(uint256 _swapContractMasterId, uint256 _swapContractId) internal {
         SwapContract storage swapContract = swapContracts[_swapContractMasterId][_swapContractId];
-        Period storage period = swapContract.period;
 
-        uint256 startDate = period.startDate;
-        uint256 periodInterval = period.periodInterval;
+        uint256 startDate = swapContract.period.startDate;
+        uint256 periodInterval = swapContract.period.periodInterval;
         uint256 notionalAmount = swapContract.notionalAmount;
 
         uint256 updatedLegABalance = swapContract.legA.balance;
         uint256 updatedLegBWithdrawable = swapContract.legB.withdrawable;
         uint256 updatedLegAWithdrawable = swapContract.legA.withdrawable;
         uint256 updatedLegBBalance = swapContract.legB.balance;
-        uint16 newIntervalCount = period.intervalCount;
+        uint16 intervalCount = swapContract.period.intervalCount;
 
-        while (block.timestamp >= startDate + (periodInterval * newIntervalCount)) {
-            uint256 currentInterval = startDate + (periodInterval * newIntervalCount);
-            uint256 nextInterval = startDate + (periodInterval * (newIntervalCount + 1));
+        while (block.timestamp >= startDate + (periodInterval * intervalCount)) {
+            uint256 currentInterval = startDate + (periodInterval * intervalCount);
+            uint256 nextInterval = startDate + (periodInterval * (intervalCount + 1));
 
             (int256 legAStartPrice, int256 legAEndPrice) = getPricesForPeriod(swapContract.legA.feedId, currentInterval, nextInterval);
             (int256 legBStartPrice, int256 legBEndPrice) = getPricesForPeriod(swapContract.legB.feedId, currentInterval, nextInterval);
@@ -388,10 +405,10 @@ contract CryptoSwap is Ownable {
                 updatedLegBWithdrawable += netValueChange;
             }
 
-            newIntervalCount++;
+            intervalCount++;
         }
 
-        // Set status to SETTLED if loop was broken due to balance underflow
+        // Set status to SETTLED if loop was broken due to bankruptcy
         if (updatedLegABalance == 0 || updatedLegBBalance == 0) {
             swapContract.status = Status.SETTLED;
         }
@@ -400,16 +417,17 @@ contract CryptoSwap is Ownable {
         if (updatedLegBWithdrawable != swapContract.legB.withdrawable) swapContract.legB.withdrawable = updatedLegBWithdrawable;
         if (updatedLegAWithdrawable != swapContract.legA.withdrawable) swapContract.legA.withdrawable = updatedLegAWithdrawable;
         if (updatedLegBBalance != swapContract.legB.balance) swapContract.legB.balance = updatedLegBBalance;
-        if (newIntervalCount != period.intervalCount) period.intervalCount = newIntervalCount;
+        if (intervalCount != swapContract.period.intervalCount) swapContract.period.intervalCount = intervalCount;
 
         emit SwapUpdated(
             _swapContractMasterId, 
             _swapContractId, 
             swapContract.legA.balance, 
             swapContract.legB.balance, 
-            period.intervalCount
+            swapContract.period.intervalCount
         );
     }
+    
 
 
     ///////////////////////////////////////////////////////
