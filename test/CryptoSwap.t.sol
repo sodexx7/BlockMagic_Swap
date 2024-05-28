@@ -14,7 +14,7 @@ contract CryptoSwapTest is Test {
     PriceFeedManager priceFeedManager;
     YieldStrategyManager yieldStrategyManager;
 
-    IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC Token on Arbitrum
+    IERC20 usdc = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC Token on ETH
     address ethUsdPriceFeed = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
     address btcUsdPriceFeed = 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c;
     address usdcWhale = 0xD160Ab0327B307a7b23436242198Dc02f850CB7C; // USDC whale

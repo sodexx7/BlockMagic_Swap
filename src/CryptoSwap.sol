@@ -37,6 +37,7 @@ contract CryptoSwap is Ownable {
 
     /// @notice Enumerations for defining interval durations
     enum PeriodInterval {
+        DAILY,
         WEEKLY,
         MONTHLY,
         QUARTERLY,
@@ -490,8 +491,10 @@ contract CryptoSwap is Ownable {
     /// @return period Configured period structure
     function _handlePeriod(uint64 _startDate, PeriodInterval _periodType, uint8 _totalIntervals) internal pure returns (Period memory period) {
         uint32 periodInterval;
-    
-        if (_periodType == PeriodInterval.WEEKLY) {
+        
+        if (_periodType == PeriodInterval.DAILY) {
+            periodInterval = 1 days;
+        }   else if (_periodType == PeriodInterval.WEEKLY) {
             periodInterval = 7 days;
         } else if (_periodType == PeriodInterval.MONTHLY) {
             periodInterval = 30 days;
