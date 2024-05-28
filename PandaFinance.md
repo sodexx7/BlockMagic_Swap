@@ -1,12 +1,10 @@
-# **Basic Intro**
+# **What Panda Finance do?**
 
 **Panda Finance** brings traditional finance swaps to the blockchain. This exposes a wider range of assets, including
 both crypto and traditional assets, making derivative tools more accessible to a broader audience and lowering the
 barrier for many people to use these powerful financial instruments.
 
-# **What Panda Finance do?**
-
-### **The definition of “_Swaps in_ Finance”**
+## **The definition of “_Swaps in_ Finance”**
 
 > _Swaps in finance involve a contract between two or more parties on a derivative contract which involves an exchange
 > of cash flow based on a predetermined notional principal amount, which usually includes interest rate swaps which is
@@ -15,7 +13,7 @@ barrier for many people to use these powerful financial instruments.
 
 - reference: [swaps-finance](https://www.wallstreetmojo.com/swaps-finance/)
 
-### **Advantages of Panda Finance**
+## **Advantages of Panda Finance**
 
 1. **Support More Assets**
    - Traditional finance swaps typically involve exchanging fixed interest rates with floating interest rates, different
@@ -32,7 +30,7 @@ barrier for many people to use these powerful financial instruments.
    - Panda Finance supports peer-to-contract interactions, allowing users to satisfy a wide range of needs, including
      niche demands.
 
-### **How Panda Finance Works**
+## **How Panda Finance Works**
 
 1. **Selecting or Opening a Leg**
    - Users can choose an active leg on the website or open a new leg.
@@ -55,11 +53,11 @@ barrier for many people to use these powerful financial instruments.
 5. **End of Swap**
    - At the swap's conclusion, users receive their principal and yield profit
 
-# **Glossary of terms**
+## **Glossary of terms**
 
 - [EquitySwapIntro](EquitySwapIntro.md)
 
-# **Chainlink Services Used**
+## **Chainlink Services Used**
 
 1. pairSwap
    - get all token's bench price
@@ -67,6 +65,6 @@ barrier for many people to use these powerful financial instruments.
    - get all token's latest price/ or history tokens’s price
    - support automation? (when user config todo)
 
-# **contracts design(todo add more details)**
+## **contracts design(todo add more details)**
 
 <img src="ContractsDesign.png" alt="external_result" width="1000"/>
