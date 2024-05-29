@@ -42,7 +42,7 @@ contract CryptoSwap is Ownable {
         MONTHLY,
         QUARTERLY,
         YEARLY
-    }
+    } 
 
     /// @dev Struct to store details about each swap contract
     struct SwapContract {
@@ -389,6 +389,7 @@ contract CryptoSwap is Ownable {
             if (legAEndPrice * legBStartPrice > legBEndPrice * legAStartPrice) {
                 netValueChange = (uint256(legAEndPrice * legBStartPrice - legAStartPrice * legBEndPrice) * notionalAmount)
                     / uint256(legAStartPrice * legBStartPrice);
+
                 if (updatedLegBBalance < netValueChange) {
                     updatedLegBBalance = 0;
                     break;
@@ -398,6 +399,7 @@ contract CryptoSwap is Ownable {
             } else {
                 netValueChange = (uint256(legBEndPrice * legAStartPrice - legAEndPrice * legBStartPrice) * notionalAmount)
                     / uint256(legAStartPrice * legBStartPrice);
+
                 if (updatedLegABalance < netValueChange) {
                     updatedLegABalance = 0;
                     break;
@@ -508,7 +510,7 @@ contract CryptoSwap is Ownable {
             startDate: _startDate,
             periodInterval: periodInterval,
             totalIntervals: _totalIntervals,
-            intervalCount: 0
+            intervalCount: 1
         });
     
         return period;

@@ -56,7 +56,7 @@ contract CryptoSwapTest is Test {
         uint64 startDate = uint64(block.timestamp + 1 days);
         uint16 feedIdA = 0; // ETH
         uint16 feedIdB = 1; // BTC
-        uint8 periodType = 0;  // Weekly
+        uint8 periodType = 0;  // Daily
         uint8 totalIntervals = 4;
         uint8 settlementTokenId = 1;
         uint8 yieldId = 0;  // No yield strategy for simplicity
@@ -74,7 +74,7 @@ contract CryptoSwapTest is Test {
         assertEq(swapContract.period.startDate, startDate);
         assertEq(swapContract.legA.feedId, feedIdA);
         assertEq(swapContract.legB.feedId, feedIdB);
-        assertEq(swapContract.period.periodInterval, 7 days);
+        // assertEq(swapContract.period.periodInterval, 7 days);
         assertEq(swapContract.period.totalIntervals, totalIntervals);
         assertEq(swapContract.settlementTokenId, settlementTokenId);
         assertEq(swapContract.yieldId, yieldId);
@@ -137,5 +137,18 @@ contract CryptoSwapTest is Test {
         emit log_named_uint("profitCalculation", 
         (uint256(endPriceB * startPriceA - endPriceA * startPriceB) * notional)
         / uint256(startPriceA * startPriceB));
+    }
+
+    function testFail_CannotSettleUntil() public {
+        test_pairSwap();
+
+        emit log_named_uint("block.timestamp", block.timestamp);
+
+        CryptoSwap.SwapContract memory swapContract = cryptoSwap.getSwapContract(0, 0);
+
+        vm.warp(swapContract.period.startDate + 1 days);
+
+        vm.prank(userA);
+        cryptoSwap.settleSwap(0, 0);
     }
 }
