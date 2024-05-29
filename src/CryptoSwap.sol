@@ -374,6 +374,9 @@ contract CryptoSwap is Ownable {
         uint256 updatedLegBBalance = swapContract.legB.balance;
         uint16 intervalCount = swapContract.period.intervalCount;
 
+        int256 updatedLegALastPrice;
+        int256 updatedLegBLastPrice;
+
         while (block.timestamp >= startDate + (periodInterval * intervalCount)) {
             uint256 currentInterval = startDate + (periodInterval * intervalCount);
             uint256 nextInterval = startDate + (periodInterval * (intervalCount + 1));
@@ -381,8 +384,8 @@ contract CryptoSwap is Ownable {
             (int256 legAStartPrice, int256 legAEndPrice) = getPricesForPeriod(swapContract.legA.feedId, currentInterval, nextInterval);
             (int256 legBStartPrice, int256 legBEndPrice) = getPricesForPeriod(swapContract.legB.feedId, currentInterval, nextInterval);
 
-            swapContract.legA.lastPrice = legAEndPrice;
-            swapContract.legB.lastPrice = legBEndPrice;
+            updatedLegALastPrice = legAEndPrice;
+            updatedLegBLastPrice = legBEndPrice;
 
             uint256 netValueChange;
 
@@ -420,6 +423,8 @@ contract CryptoSwap is Ownable {
         if (updatedLegBWithdrawable != swapContract.legB.withdrawable) swapContract.legB.withdrawable = updatedLegBWithdrawable;
         if (updatedLegAWithdrawable != swapContract.legA.withdrawable) swapContract.legA.withdrawable = updatedLegAWithdrawable;
         if (updatedLegBBalance != swapContract.legB.balance) swapContract.legB.balance = updatedLegBBalance;
+        if (updatedLegALastPrice != swapContract.legA.lastPrice) swapContract.legA.lastPrice = updatedLegALastPrice;
+        if (updatedLegBLastPrice != swapContract.legB.lastPrice) swapContract.legB.lastPrice = updatedLegBLastPrice;
         if (intervalCount != swapContract.period.intervalCount) swapContract.period.intervalCount = intervalCount;
 
         emit SwapUpdated(
