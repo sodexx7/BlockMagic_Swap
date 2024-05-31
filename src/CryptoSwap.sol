@@ -305,7 +305,7 @@ contract CryptoSwap is Ownable {
 
         if (swapContract.status == Status.ACTIVE) {
             if (user == true) {
-                if (swapContract.legA.withdrawable > 0) revert NoWinningsAvailable();
+                if (swapContract.legA.withdrawable == 0) revert NoWinningsAvailable();
 
                 swapContract.legA.withdrawable = 0;
     
@@ -316,7 +316,7 @@ contract CryptoSwap is Ownable {
                 }
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
                 } else {
-                if (swapContract.legB.withdrawable > 0) revert NoWinningsAvailable();
+                if (swapContract.legB.withdrawable == 0) revert NoWinningsAvailable();
 
                 swapContract.legB.withdrawable = 0;
     
