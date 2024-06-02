@@ -9,7 +9,7 @@ import "./interfaces/IPriceFeedManager.sol";
 import "./interfaces/IYieldStrategyManager.sol";
 
 /// @title CryptoSwap - A contract for managing decentralized swaps between assets
-contract CryptoSwap is Ownable {
+contract CryptoSwapAutomated is Ownable {
     using SafeERC20 for IERC20;
 
     ///////////////////////////////////////////////////////
