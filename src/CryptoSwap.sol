@@ -32,7 +32,7 @@ contract CryptoSwap is Ownable {
         OPEN,
         ACTIVE,
         SETTLED,
-        CANCELLED
+        CANCELED
     }
 
     /// @notice Enumerations for defining interval durations
@@ -356,7 +356,7 @@ contract CryptoSwap is Ownable {
                 }
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, amount);
             }
-        } else if (swapContract.status == Status.CANCELLED) {
+        } else if (swapContract.status == Status.CANCELED) {
             if (user == true) {
                 swapContract.legA.balance = 0;
 
@@ -463,9 +463,9 @@ contract CryptoSwap is Ownable {
         if (msg.sender != swapContract.userA) revert UnauthorizedAccess();
         if (swapContract.status != Status.OPEN) revert StatusMustBeOpen(swapContract.status);
 
-        swapContract.status = Status.CANCELLED;
+        swapContract.status = Status.CANCELED;
 
-        emit SwapCanceled(_swapContractMasterId, _swapContractId, Status.CANCELLED);
+        emit SwapCanceled(_swapContractMasterId, _swapContractId, Status.CANCELED);
     }
     
 
