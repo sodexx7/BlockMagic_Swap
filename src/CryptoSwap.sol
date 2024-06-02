@@ -46,6 +46,8 @@ contract CryptoSwap is Ownable {
     struct SwapContract {
         uint256 contractMasterId;
         uint256 contractId;
+        uint256 notionalAmount;
+        uint256 yieldShares;
         address userA;
         address userB;
         Period period;
@@ -53,8 +55,6 @@ contract CryptoSwap is Ownable {
         Leg legB;
         uint8 settlementTokenId;
         uint8 yieldId;
-        uint256 notionalAmount;
-        uint256 yieldShares;
         Status status;
     }
 
@@ -116,6 +116,13 @@ contract CryptoSwap is Ownable {
         uint256 indexed contractId,
         Status status
     );
+
+    /// @notice Event emitted when a swap is canceled
+    event SwapCanceled(
+        uint256 indexed contractMasterId,
+        uint256 indexed contractId,
+        Status status
+    );
     
     /// @notice Event emitted when a swap is updated
     event SwapUpdated(
@@ -163,6 +170,8 @@ contract CryptoSwap is Ownable {
     error TokenAlreadyExists();
     /// @notice Error for when a token does not exist in the mapping
     error TokenDoesNotExist();
+    /// @notice Error for when a user attempts to withdraw from the wrong leg
+    error CantWithdraw();
 
     ///////////////////////////////////////////////////////
     ///                MUTATIVE FUNCTIONS               ///
@@ -208,6 +217,8 @@ contract CryptoSwap is Ownable {
             SwapContract memory swapContract = SwapContract({
                 contractMasterId: contractMasterId,
                 contractId: i,
+                notionalAmount: _notionalAmount,
+                yieldShares: shares,
                 userA: msg.sender,
                 userB: address(0),
                 period: period,
@@ -215,8 +226,6 @@ contract CryptoSwap is Ownable {
                 legB: legB,
                 settlementTokenId: _settlementTokenId,
                 yieldId: _yieldId,
-                notionalAmount: _notionalAmount,
-                yieldShares: shares,
                 status: Status.OPEN
             });
 
@@ -325,7 +334,7 @@ contract CryptoSwap is Ownable {
                 }
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, amount);
                 }
-        } else {
+        } else if (swapContract.status == Status.SETTLED){
             if (user == true) {
 
                 swapContract.legA.balance = 0;
@@ -347,7 +356,21 @@ contract CryptoSwap is Ownable {
                 }
                 IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userB, amount);
             }
+        } else if (swapContract.status == Status.CANCELLED) {
+            if (user == true) {
+                swapContract.legA.balance = 0;
+
+                amount = swapContract.legA.balance;
+
+                if (yieldId != 0) {
+                    yieldStrategyManager.withdrawYield(swapContract.yieldId, amount, swapContract.userA);
+                }
+                IERC20(settlementTokenAddresses[swapContract.settlementTokenId]).safeTransfer(swapContract.userA, amount);
+            } else {
+                revert CantWithdraw();
+            }
         }
+
         emit WinningsWithdrawn(
             _swapContractMasterId,
             _swapContractId,
@@ -432,6 +455,17 @@ contract CryptoSwap is Ownable {
             swapContract.legB.balance, 
             swapContract.period.intervalCount
         );
+    }
+
+    function cancelSwap(uint256 _swapContractMasterId, uint256 _swapContractId) external {
+        SwapContract memory swapContract = swapContracts[_swapContractMasterId][_swapContractId];
+
+        if (msg.sender != swapContract.userA) revert UnauthorizedAccess();
+        if (swapContract.status != Status.OPEN) revert StatusMustBeOpen(swapContract.status);
+
+        swapContract.status = Status.CANCELLED;
+
+        emit SwapCanceled(_swapContractMasterId, _swapContractId, Status.CANCELLED);
     }
     
 
