@@ -39,9 +39,7 @@ contract CryptoSwap is Ownable {
     enum PeriodInterval {
         DAILY,
         WEEKLY,
-        MONTHLY,
-        QUARTERLY,
-        YEARLY
+        MONTHLY
     } 
 
     /// @dev Struct to store details about each swap contract
@@ -501,15 +499,11 @@ contract CryptoSwap is Ownable {
         
         if (_periodType == PeriodInterval.DAILY) {
             periodInterval = 1 days;
-        }   else if (_periodType == PeriodInterval.WEEKLY) {
+        } else if (_periodType == PeriodInterval.WEEKLY) {
             periodInterval = 7 days;
-        } else if (_periodType == PeriodInterval.MONTHLY) {
-            periodInterval = 30 days;
-        } else if (_periodType == PeriodInterval.QUARTERLY) {
-            periodInterval = 90 days;
         } else {
-            periodInterval = 365 days;
-        }
+            periodInterval = 30 days;
+        } 
     
         period = Period({
             startDate: _startDate,
