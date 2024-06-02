@@ -12,6 +12,10 @@ import "./interfaces/IYieldStrategyManager.sol";
 contract CryptoSwap is Ownable {
     using SafeERC20 for IERC20;
 
+    ///////////////////////////////////////////////////////
+    ///              CONTRACT VARIABLES                ///
+    ///////////////////////////////////////////////////////
+
     /// @notice Price feed manager for managing external price feeds
     IPriceFeedManager public immutable priceFeedManager;
     /// @notice Yield strategy manager for handling yield-generating strategies
@@ -27,6 +31,17 @@ contract CryptoSwap is Ownable {
     /// @notice Nested mapping to store swap contract details by master and individual contract IDs
     mapping(uint256 => mapping(uint256 => SwapContract)) public swapContracts;
 
+    ///////////////////////////////////////////////////////
+    ///              CHAINLINK VARIABLES                ///
+    ///////////////////////////////////////////////////////
+    uint256[2][] public dailyUpkeep;
+    uint256[2][] public weeklyUpkeep;
+    uint256[2][] public monthlyUpkeep;
+     
+    ///////////////////////////////////////////////////////
+    ///              ENUMS & STRUCTS                    ///
+    ///////////////////////////////////////////////////////
+
     /// @notice Enumerations for swap contract statuses
     enum Status {
         OPEN,
@@ -39,9 +54,7 @@ contract CryptoSwap is Ownable {
     enum PeriodInterval {
         DAILY,
         WEEKLY,
-        MONTHLY,
-        QUARTERLY,
-        YEARLY
+        MONTHLY
     } 
 
     /// @dev Struct to store details about each swap contract
@@ -193,7 +206,9 @@ contract CryptoSwap is Ownable {
     )
         external
     {
-        if (_startDate < block.timestamp) revert InvalidStartDate(_startDate);
+
+
+        if (_startDate + 1 days < block.timestamp) revert InvalidStartDate(_startDate);
         if (_notionalAmount % 10 != 0) revert InvalidNotionalAmount(_notionalAmount);
 
         IERC20(settlementTokenAddresses[_settlementTokenId]).transferFrom(msg.sender, address(this), (_contractCreationCount * _notionalAmount) / 2);
@@ -266,7 +281,7 @@ contract CryptoSwap is Ownable {
     /// @notice Settles an active swap, potentially updating its status to SETTLED if conditions are met
     /// @param _swapContractMasterId The master ID of the contract
     /// @param _swapContractId The individual ID of the contract within the master grouping
-    function settleSwap(uint256 _swapContractMasterId, uint256 _swapContractId) external {
+    function settleSwap(uint256 _swapContractMasterId, uint256 _swapContractId) public {
         SwapContract memory swapContract = swapContracts[_swapContractMasterId][_swapContractId];
 
         if (!(msg.sender == swapContract.userA || msg.sender == swapContract.userB)) revert UnauthorizedAccess();
@@ -435,7 +450,94 @@ contract CryptoSwap is Ownable {
             swapContract.period.intervalCount
         );
     }
-    
+
+    ///////////////////////////////////////////////////////
+    ///                CHAINLINK FUNCTIONS              ///
+    ///////////////////////////////////////////////////////
+    // The following 3 functions are split into 3 in order to allow Chainlink Automation to call them separately
+    // Each function is called by the Chainlink Keeper at a different interval (daily, weekly, monthly)
+    // This allows for more efficient gas usage and better control via Chainlink CRON expressions
+
+    /// @notice Automates the daily settlement of swaps, ensuring all required swaps are settled in one transaction
+    /// @dev Iterates over the dailyUpkeep array and settles swaps accordingly
+    function automatedSettleSwapDaily() public {
+        uint256 i = 0;
+        while (i < dailyUpkeep.length) {
+            uint256 contractMasterId = dailyUpkeep[i][0];
+            uint256 contractId = dailyUpkeep[i][1];
+
+            SwapContract memory swapContract = swapContracts[contractMasterId][contractId];
+            uint256 totalIntervals = swapContract.period.totalIntervals;
+            uint256 intervalCount = swapContract.period.intervalCount;
+
+            settleSwap(contractMasterId, contractId);  // Settle swap regardless of condition
+
+            if (intervalCount >= totalIntervals) {
+                popAndReplaceWithLast(i, dailyUpkeep);  // Remove and replace the settled swap if it's done
+                // Do not increment i to check the new contract at the same index
+            } else {
+                i++;  // Increment only if the contract is not finished and thus not removed
+            }
+        }
+    }
+
+    /// @notice Automates the weekly settlement of swaps, ensuring all required swaps are settled in one transaction
+    /// @dev Iterates over the weeklyUpkeep array and settles swaps accordingly
+    function automatedSettleSwapWeekly() public {
+        uint256 i = 0;
+        while (i < weeklyUpkeep.length) {
+            uint256 contractMasterId = weeklyUpkeep[i][0];
+            uint256 contractId = weeklyUpkeep[i][1];
+
+            SwapContract memory swapContract = swapContracts[contractMasterId][contractId];
+            uint256 totalIntervals = swapContract.period.totalIntervals;
+            uint256 intervalCount = swapContract.period.intervalCount;
+
+            settleSwap(contractMasterId, contractId);  // Settle swap regardless of condition
+
+            if (intervalCount >= totalIntervals) {
+                popAndReplaceWithLast(i, weeklyUpkeep);  // Remove and replace the settled swap if it's done
+                // Do not increment i to check the new contract at the same index
+            } else {
+                i++;  // Increment only if the contract is not finished and thus not removed
+            }
+        }
+    }
+
+    /// @notice Automates the monthly settlement of swaps, ensuring all required swaps are settled in one transaction
+    /// @dev Iterates over the monthlyUpkeep array and settles swaps accordingly
+    function automatedSettleSwapMonthly() public {
+        uint256 i = 0;
+        while (i < monthlyUpkeep.length) {
+            uint256 contractMasterId = monthlyUpkeep[i][0];
+            uint256 contractId = monthlyUpkeep[i][1];
+
+            SwapContract memory swapContract = swapContracts[contractMasterId][contractId];
+            uint256 totalIntervals = swapContract.period.totalIntervals;
+            uint256 intervalCount = swapContract.period.intervalCount;
+
+            settleSwap(contractMasterId, contractId);  // Settle swap regardless of condition
+
+            if (intervalCount >= totalIntervals) {
+                popAndReplaceWithLast(i, monthlyUpkeep);  // Remove and replace the settled swap if it's done
+                // Do not increment i to check the new contract at the same index
+            } else {
+                i++;  // Increment only if the contract is not finished and thus not removed
+            }
+        }
+    }
+
+    /// @notice Removes an entry at a specific index and replaces it with the last entry in the array
+    /// @dev Used to efficiently remove items from the upkeep arrays without leaving a gap
+    /// @param index The index of the entry to remove
+    /// @param array The array from which to remove the entry
+    function popAndReplaceWithLast(uint index, uint256[2][] storage array) internal {
+        if (index < array.length - 1) {
+            array[index] = array[array.length - 1];
+        }
+        array.pop();
+    }
+
 
 
     ///////////////////////////////////////////////////////
@@ -501,15 +603,11 @@ contract CryptoSwap is Ownable {
         
         if (_periodType == PeriodInterval.DAILY) {
             periodInterval = 1 days;
-        }   else if (_periodType == PeriodInterval.WEEKLY) {
+        } else if (_periodType == PeriodInterval.WEEKLY) {
             periodInterval = 7 days;
-        } else if (_periodType == PeriodInterval.MONTHLY) {
-            periodInterval = 30 days;
-        } else if (_periodType == PeriodInterval.QUARTERLY) {
-            periodInterval = 90 days;
         } else {
-            periodInterval = 365 days;
-        }
+            periodInterval = 30 days;
+        } 
     
         period = Period({
             startDate: _startDate,
