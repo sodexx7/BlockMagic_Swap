@@ -236,6 +236,7 @@ contract CryptoSwap is Ownable {
             });
 
             swapContracts[contractMasterId][i] = swapContract;
+            
             if (_periodType == PeriodInterval.DAILY) {
                 dailyUpkeep.push([contractMasterId, i]);
             } else if (_periodType == PeriodInterval.WEEKLY) {
