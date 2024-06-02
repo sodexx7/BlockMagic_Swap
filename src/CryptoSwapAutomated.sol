@@ -206,8 +206,6 @@ contract CryptoSwap is Ownable {
     )
         external
     {
-
-
         if (_startDate + 1 days < block.timestamp) revert InvalidStartDate(_startDate);
         if (_notionalAmount % 10 != 0) revert InvalidNotionalAmount(_notionalAmount);
 
@@ -238,6 +236,12 @@ contract CryptoSwap is Ownable {
             });
 
             swapContracts[contractMasterId][i] = swapContract;
+            if (_periodType == PeriodInterval.DAILY) {
+                dailyUpkeep.push([contractMasterId, i]);
+            } else if (_periodType == PeriodInterval.WEEKLY) {
+                weeklyUpkeep.push([contractMasterId, i]);
+            } else {
+                monthlyUpkeep.push([contractMasterId, i]);
         }
 
         contractCreationCount[contractMasterId] = _contractCreationCount;
